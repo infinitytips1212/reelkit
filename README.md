@@ -1,4 +1,4 @@
-# reelkit: 46 video effects for Claude Code
+# reelkit: 45 video effects (+ a mascot) for Claude Code
 
 Drop your talking-head video into Claude Code, type `/reelkit` and the name of an effect. That's the whole edit.
 
@@ -7,14 +7,14 @@ Drop your talking-head video into Claude Code, type `/reelkit` and the name of a
 Open the Terminal app (or the terminal inside Claude Code) and paste:
 
 ```bash
-git clone https://github.com/GITHUB_USER/reelkit ~/.claude/skills/reelkit
+git clone https://github.com/innfinitytips/reelkit ~/.claude/skills/reelkit
 ```
 
 On Windows (PowerShell), use `$HOME\.claude\skills\reelkit` instead of `~/.claude/skills/reelkit`.
 
 Then restart Claude Code.
 
-> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/GITHUB_USER/reelkit into ~/.claude/skills/reelkit"**. Claude will do it for you.
+> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/innfinitytips/reelkit into ~/.claude/skills/reelkit"**. Claude will do it for you.
 
 ## Use it
 
@@ -44,7 +44,7 @@ Your audio stays as it was. Delete the folder and it's all gone.
 
 You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then the mascot saying 'no way' on 'no'."*
 
-## The 46 effects
+## The effects (45 + the mascot)
 
 | # | Type this | What happens |
 |---|---|---|
@@ -107,6 +107,10 @@ Every effect follows your face. Anything that would cover your face goes behind 
 - **Word timing fixed**: "when I say…" timing works again (the transcriber no longer crashes with newer Python packages).
 - **Tidy output**: every job gets its own folder with plans, checks and output.
 - **`font=inter`** for big words.
+- **`claude-bar`**: a Claude Code window in the space above your head types each `/reelkit <effect>` command while you talk, with the mascot riding on top. It moves onto your chest when an effect needs the top. Great for series.
+- **`room-dark`**: darkens the room behind you (not you) so graphics stand out.
+- **Instagram safe zone**: graphics stay in the top 65% of the frame, clear of Instagram's name, caption and buttons (`"safe": 0.65` in a plan, `1` turns it off).
+- **Face lock**: no effect can cut into your face, and cards never slice across your neck.
 
 ## Tips
 - Vertical phone videos with you in frame work best. Leave some space above your head.
@@ -123,5 +127,7 @@ Every effect follows your face. Anything that would cover your face goes behind 
 Just tell Claude what you see ("the word covers my face", "it's too fast"). It will fix the plan and render again.
 
 ## Credits
+reelkit is an unofficial fan project. It is not made by, endorsed by or affiliated with Anthropic. Claude and Claude Code are trademarks of Anthropic; the pixel mascot is a fan tribute.
+
 reelkit is based on [claude-video-effects](https://github.com/Vibha-Ramprakash/claude-video-effects) by Vibha Ramprakash (MIT licence).
 Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat, Playfair Display (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
