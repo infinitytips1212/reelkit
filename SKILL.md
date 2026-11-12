@@ -1,9 +1,9 @@
 ---
-name: effects
-description: Add any of 45 video effects to a talking-head video (orbit, spotlight, glass widgets, timeline, checklist, headline wall, comment box, phone fan, liquid glass graph, match-cut, iPhone toggles, LED sign, over-the-shoulder zoom, iMessage pop-ups, place-in-grid and more). Effects track the speaker's face and can sit behind their head. Use when the user types /effects, names one of the effects, or asks to add an effect, zoom, grade, sticker or animation to their video.
+name: reel-fx
+description: Add any of 46 video effects to a talking-head video (orbit, spotlight, mascot, glass widgets, timeline, checklist, headline wall, comment box, phone fan, liquid glass graph, match-cut, iPhone toggles, LED sign, over-the-shoulder zoom, iMessage pop-ups, place-in-grid and more). Effects track the speaker's face and can sit behind their head. Use when the user types /reel-fx, names one of the effects, or asks to add an effect, zoom, grade, sticker or animation to their video.
 ---
 
-# Effects: 45 starter video effects (by @vibha.in.progress)
+# reel-fx: 46 video effects for talking-head reels
 
 The user is usually not technical. Keep replies short and friendly, do the work for them, and never ask them to run commands themselves.
 
@@ -17,28 +17,38 @@ Run `bash scripts/setup.sh`. It prints `READY` when done (the first time takes 1
 
 ## 2. Get the video and the effect
 - Video: the user drags the file into the chat, or gives a path. A vertical phone video works best.
-- Effect: from `/effects <name>`, or from what they describe. Match their words to the table below. Unsure? Show them the list.
+- Effect: from `/reel-fx <name>`, or from what they describe. Match their words to the table below. Unsure? Show them the list.
 
-## 3. Find the timing
-- If they say "on the word X" or "when I say ...", run `.venv/bin/python scripts/words.py <video>` and use those times.
+## 3. Make a work folder (every job)
+Keep each job tidy so the user can find or delete it in one go. Next to their video, create `<video-name>_fx/` with:
+```
+<video-name>_fx/
+  plans/    <- the effect plan(s) as JSON
+  checks/   <- check frames (PNG)
+  output/   <- the finished video(s)
+```
+Never write files anywhere else, and never modify the original video.
+
+## 4. Find the timing
+- If they say "on the word X" or "when I say ...", run `.venv/bin/python scripts/words.py <video>` and use those times. It saves `<video>.words.json`; move that into the work folder's `plans/`.
 - If they give no timing, apply the effect for the whole clip, or ask which part (one short question).
 - Short windows look best: 1.5 to 4 seconds per effect.
 
-## 4. Draft, check, render
-1. Write the plan next to their video as `<video-name>_effects.json`:
+## 5. Draft, check, render
+1. Write the plan as `<work folder>/plans/<video-name>.json`:
    ```json
    {"effects": [
      {"fx": "orbit", "start": 3.2, "end": 6.0},
      {"fx": "backdrop-word", "start": 14.0, "end": 16.3, "text": "CLAUDE"}
    ]}
    ```
-2. Check frames first (fast): `.venv/bin/python scripts/fx.py --plan <plan.json> <video> <folder>/check.png --still 4.5,15.2`, using the middle of each effect. Look at the PNGs yourself. Fix the text, timing or options if something looks off (covers the face, cut off by the edge, unreadable).
-3. Render: `.venv/bin/python scripts/fx.py --plan <plan.json> <video> <video-name>_effects.mp4`. The output keeps their original audio. It renders at 1080p by default; add `--width 2160` for 4K (slower).
+2. Check frames first (fast): `.venv/bin/python scripts/fx.py --plan <plan.json> <video> <work folder>/checks/check.png --still 4.5,15.2`, using the middle of each effect. Look at the PNGs yourself. Fix the text, timing or options if something looks off (covers the face, cut off by the edge, unreadable).
+3. Render: `.venv/bin/python scripts/fx.py --plan <plan.json> <video> <work folder>/output/<video-name>_fx.mp4`. The output keeps their original audio. It renders at 1080p by default; add `--width 2160` for 4K (slower).
 4. Tell them where the file is. Remind them in one line to watch it before posting: it drafts, they approve.
 
 A single effect needs no plan: `.venv/bin/python scripts/fx.py orbit <video> <out.mp4> --start 3 --end 6 --text "..." --opt key=value`.
 
-## The 45 effects
+## The 46 effects
 | # | `fx` name | What it does | Options (all optional) |
 |---|---|---|---|
 | 1 | `noise` | Reels pile up behind your head, one every quarter second | `images` (folder of screenshots or clips), `size` |
@@ -86,6 +96,7 @@ A single effect needs no plan: `.venv/bin/python scripts/fx.py orbit <video> <ou
 | 43 | `over-the-shoulder-zoom` | The camera pushes into one top corner and a see-through liquid glass graph pops beside your head (line climbs, number counts up), pulls back, then the other corner with a second, related bar graph. Your head stays in front | `text` (two labels with `\|`), `to` (two numbers with `\|`, e.g. `197K\|672K`), `zoom` (default 2.0) |
 | 44 | `messages` | iMessage notifications pop in one after another, creamy glass with a soft glow, stacking up above the bottom of the frame | `text` (messages with `\|`), `title` (default Messages), `y` |
 | 45 | `place-in-grid` | You shrink into the centre tile of your 3x3 profile grid on frosted glass, then 8 reels pop in around you, one per frame, with Instagram view counts on every tile | `images` (folder of your reels or covers), `views` (9 counts with `\|`, the 9th is yours) |
+| 46 | `mascot` | The pixel mascot drops in beside your head with a squash, waves, blinks, says a line in a speech bubble, then hops away. Anything overlapping you goes behind you | `text` (the speech bubble), `side` (`left` or `right`; default: the side with more room), `size` (default 1), `y` (how high beside your head, default 0.25), `color` |
 
 **Named looks** (same effect, a fancier look; they don't add to the count):
 - `glitter-spotlight` = `spotlight` with `look=sparkle`: the room goes dark, golden rays burst from behind your head, a big gold word with a shine sweep, twinkling sparkles and a glow around you. `text` (the word), `color`, `push`.
@@ -95,9 +106,17 @@ A single effect needs no plan: `.venv/bin/python scripts/fx.py orbit <video> <ou
 
 Aliases work too: `bill`, `to-do`, `follow`, `stamp`, `countdown`, `cover`, `rain`, `pause`.
 
+
+## Colours
+Anywhere an effect takes `color` (or `accent`), you can use a house colour name instead of a hex code:
+`black` #111111, `white` #FFFFFF, `cream` #F6ECDF, `orange` #F15B45 (mascot orange), `accent` #E8663A, `gold` #F2A516, `green` #35A853.
+Big-word effects also take `font=inter` (Inter ExtraBold) besides `bold`, `serif`, `mono`, `anton` and `hand`.
+
 ## Rules
 - Never cover the face. Everything either goes behind the person or avoids the face by itself; if a check frame still shows text over the face, move it (`x`, `y`) or shorten the text.
 - Effects run in the order listed. Put camera effects (`locked-on`, `lean-in`, `spotlight`) first when they overlap others.
 - Zoom never goes past 2x, so the video stays sharp.
 - This skill adds visuals only. Sound effects and captions are up to the user (CapCut works well).
 - These are starter versions. Be honest about that if the user compares them to a reel they saw.
+- Keep every file for a job inside its work folder (step 3).
+- Effects that show a profile (`glass-widgets`, `pastel-word`, `reel-frame`, `tap`, `comment-box`, `check-pills`, `headline-wall`, `place-in-grid`) default to "Your Name" / "@yourhandle". Ask the user once for their name and @handle and pass them as `name` and `handle`.

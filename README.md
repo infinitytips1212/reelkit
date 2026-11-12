@@ -1,46 +1,53 @@
-# 45 Video Effects for Claude
+# reel-fx: 46 video effects for Claude Code
 
-Drop your video into Claude, type `/effects` and the name of an effect. That's the whole edit.
+Drop your talking-head video into Claude Code, type `/reel-fx` and the name of an effect. That's the whole edit.
 
-Made by [@vibha.in.progress](https://instagram.com/vibha.in.progress) 💛
-
-![All 45 effects](assets/preview.jpg)
-
-## Install (one line)
+## Install
 
 Open the Terminal app (or the terminal inside Claude Code) and paste:
 
 ```bash
-git clone https://github.com/Vibha-Ramprakash/claude-video-effects ~/.claude/skills/effects
+git clone https://github.com/GITHUB_USER/reel-fx ~/.claude/skills/reel-fx
 ```
 
-On Windows (PowerShell), use `$HOME\.claude\skills\effects` instead of `~/.claude/skills/effects`.
+On Windows (PowerShell), use `$HOME\.claude\skills\reel-fx` instead of `~/.claude/skills/reel-fx`.
 
-Then restart Claude Code. That's it.
+Then restart Claude Code.
 
-> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/Vibha-Ramprakash/claude-video-effects into ~/.claude/skills/effects"**. Claude will do it for you.
+> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/GITHUB_USER/reel-fx into ~/.claude/skills/reel-fx"**. Claude will do it for you.
 
 ## Use it
 
-1. Open Claude Code (the app or the terminal).
+1. Open Claude Code.
 2. Drag your video into the chat.
 3. Type the effect you want:
 
 ```
-/effects orbit from 3 to 6 seconds
-/effects spotlight when I say "kill the lights", with the word Claudit behind me
-/effects comment-box at the end, typing CLAUDE
-/effects glass-widgets for the first 3 seconds
+/reel-fx orbit from 3 to 6 seconds
+/reel-fx spotlight when I say "kill the lights", with the word CLAUDE behind me
+/reel-fx mascot at the start, saying "Watch this"
+/reel-fx comment-box at the end, typing EFFECTS
 ```
 
-The very first time, Claude sets itself up (about 2 minutes). It needs `ffmpeg` and Python, and it installs them for you if they're missing.
+The first time, Claude sets itself up (about 2 minutes). It needs `ffmpeg` and Python, and installs them if they're missing.
 
-Claude checks a few frames first, fixes anything that covers your face, then renders `yourvideo_effects.mp4` right next to your original. Your audio stays as it was.
+Claude checks a few frames first, fixes anything that covers your face, then renders the video into a tidy work folder next to your original:
 
-You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then a reject stamp on 'no'."*
+```
+yourvideo_fx/
+  plans/    the effect timings
+  checks/   test frames
+  output/   the finished video
+```
 
-## The 45 effects
+Your audio stays as it was. Delete the folder and it's all gone.
 
+You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 10 to 13s, then the mascot saying 'no way' on 'no'."*
+
+## The 46 effects
+
+| # | Type this | What happens |
+|---|---|---|
 | # | Type this | What happens |
 |---|---|---|
 | 1 | `noise` | Reels pile up behind your head |
@@ -88,26 +95,33 @@ You can stack effects in one go: *"Add locked-on from 6 to 10s, then orbit from 
 | 43 | `over-the-shoulder-zoom` | Pushes into one corner, a liquid glass graph pops beside your head, then the other corner with a second graph |
 | 44 | `messages` | iMessage notifications pop in one after another with a soft glow |
 | 45 | `place-in-grid` | You shrink into the centre of your 3x3 profile grid, your reels pop in around you with view counts |
+| 46 | `mascot` | A pixel mascot drops in beside your head, waves and says your line in a speech bubble |
 
-Bonus looks: `/effects glitter-spotlight` (golden rays and sparkles), `cover-star look=editorial` (a classic magazine cover) and `liquid-glass-graph look=bento` (a glass dashboard around you).
+Bonus looks: `glitter-spotlight` (golden rays and sparkles), `cover-star look=editorial` (a classic magazine cover) and `liquid-glass-graph look=bento` (a glass dashboard around you).
 
 Every effect follows your face. Anything that would cover your face goes behind your head instead.
 
-**Tips**
-- Vertical phone videos with you in frame work best.
+## What's new in reel-fx
+- **`mascot`**: a new effect with a pixel character that lands beside you and talks.
+- **House colours by name**: say `color=orange`, `gold`, `cream`, `black`, `white`, `green` or `accent` instead of hex codes. These are the new defaults.
+- **Word timing fixed**: "when I say…" timing works again (the transcriber no longer crashes with newer Python packages).
+- **Tidy output**: every job gets its own folder with plans, checks and output.
+- **`font=inter`** for big words.
+
+## Tips
+- Vertical phone videos with you in frame work best. Leave some space above your head.
 - Say the timing in plain words ("when I say 'watch'"). Claude finds the exact second.
-- Want your own reels in `orbit`, `noise`, `phone-fan` or `profile-wall`? Give Claude a folder of screenshots.
+- Want your own reels in `orbit`, `noise`, `phone-fan` or `profile-wall`? Give Claude a folder of screenshots. Without one, it uses frames from your own video.
 - Charts, counters and headlines should use your real numbers. Tell Claude what they are.
 - It renders in 1080p. Ask for 4K if you want it (slower).
 
-## Honest notes
-- These are **starter versions**. They won't match the exact edit in my reel, which also has sound design and hand-tuned timing.
-- It drafts, you approve. Watch the result before you post.
-- No sounds or captions are added. Add those in CapCut.
-- My full edit style is coming later. Follow [@vibha.in.progress](https://instagram.com/vibha.in.progress) to hear first.
+## Notes
+- These are starter effects. They draft, you approve. Watch the result before you post.
+- No sounds or captions are added. Add those in your editor.
 
 ## If something goes wrong
 Just tell Claude what you see ("the word covers my face", "it's too fast"). It will fix the plan and render again.
 
 ## Credits
-Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
+reel-fx is based on [claude-video-effects](https://github.com/Vibha-Ramprakash/claude-video-effects) by Vibha Ramprakash (MIT licence).
+Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat, Playfair Display (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.
