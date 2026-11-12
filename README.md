@@ -7,14 +7,14 @@ Drop your talking-head video into Claude Code, type `/reelkit` and the name of a
 Open the Terminal app (or the terminal inside Claude Code) and paste:
 
 ```bash
-git clone https://github.com/innfinitytips/reelkit ~/.claude/skills/reelkit
+git clone https://github.com/infinitytips1212/reelkit ~/.claude/skills/reelkit
 ```
 
 On Windows (PowerShell), use `$HOME\.claude\skills\reelkit` instead of `~/.claude/skills/reelkit`.
 
 Then restart Claude Code.
 
-> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/innfinitytips/reelkit into ~/.claude/skills/reelkit"**. Claude will do it for you.
+> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/infinitytips1212/reelkit into ~/.claude/skills/reelkit"**. Claude will do it for you.
 
 ## Use it
 
