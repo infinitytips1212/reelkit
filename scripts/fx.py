@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""45 starter video effects for Claude, by @vibha.in.progress
+"""reel-fx: video effects for Claude Code.
+Based on claude-video-effects by Vibha Ramprakash (MIT), with house-style colours, a fixed
+transcriber and new effects (mascot).
 
 One effect:    python fx.py orbit in.mp4 out.mp4 --start 3.2 --end 6
 Many effects:  python fx.py --plan plan.json in.mp4 out.mp4
@@ -16,9 +18,13 @@ FONT = {k: os.path.join(ROOT, 'fonts', v) for k, v in {
     'bold': 'ArchivoBlack-Regular.ttf', 'serif': 'InstrumentSerif-Italic.ttf', 'mono': 'SpaceMono-Bold.ttf',
     'hand': 'PermanentMarker-Regular.ttf', 'ui': 'Inter.ttf', 'uim': 'Inter.ttf', 'uib': 'Inter.ttf',
     'anton': 'Anton-Regular.ttf', 'mont': 'Montserrat.ttf', 'monts': 'Montserrat.ttf', 'montb': 'Montserrat.ttf',
-    'didone': 'PlayfairDisplay.ttf', 'didoneb': 'PlayfairDisplay.ttf', 'didonei': 'PlayfairDisplay-Italic.ttf'}.items()}
-WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'mont': (700,), 'monts': (600,), 'montb': (800,), 'didone': (500,), 'didoneb': (800,), 'didonei': (500,)}  # Inter variable: (optical size, weight)
-CREAM, INK, PEACH, YELLOW = (244, 233, 216), (22, 22, 24), (255, 183, 165), (255, 214, 10)
+    'didone': 'PlayfairDisplay.ttf', 'didoneb': 'PlayfairDisplay.ttf', 'didonei': 'PlayfairDisplay-Italic.ttf',
+    'inter': 'Inter.ttf'}.items()}
+WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'inter': (32, 800), 'mont': (700,), 'monts': (600,), 'montb': (800,), 'didone': (500,), 'didoneb': (800,), 'didonei': (500,)}  # Inter variable: (optical size, weight)
+# House palette: black / white / cream backgrounds, mascot orange, gold and green accents.
+HOUSE = {'black': (17, 17, 17), 'white': (255, 255, 255), 'cream': (246, 236, 223), 'orange': (241, 91, 69),
+         'accent': (232, 102, 58), 'gold': (242, 165, 22), 'green': (53, 168, 83)}
+CREAM, INK, PEACH, YELLOW = HOUSE['cream'], HOUSE['black'], (255, 183, 165), HOUSE['gold']
 NAMES = ['The Noise', 'The Lineup', 'Locked On', 'Orbit', 'Lean-In', 'Backdrop Word', 'Spotlight', 'The Bill',
          'Moody', 'Swipe', 'The To-Do', 'Comment Box', 'The Tap', 'Pause & Point', 'Uninstall', 'Reel Frame',
          'Shortcut Rain', 'Reject Stamp', 'Countdown Flip', 'Rabbit Hole', 'Cover Star', 'Scribble']
@@ -54,6 +60,7 @@ def ramp(c, e, t_in=0.25, t_out=0.2): return clamp(c.lt / t_in) * clamp((e.d - c
 def rgb(v, default):
     if v is None: return default
     if isinstance(v, (list, tuple)): return tuple(int(x) for x in v[:3])
+    if str(v).lower() in HOUSE: return HOUSE[str(v).lower()]
     v = str(v).lstrip('#'); return tuple(int(v[i:i + 2], 16) for i in (0, 2, 4))
 
 
@@ -327,7 +334,7 @@ def fx_spotlight(c, e):
     bright = 1 - k * (1 - (0.2 + 0.45 * pool))
     f = bright * (1 - c.m) + c.m * (1 + 0.04 * k)
     if e.o.get('text'):
-        word = e.o['text']; col = rgb(e.o.get('color'), PEACH)
+        word = e.o['text']; col = rgb(e.o.get('color'), HOUSE['orange'])
         im = cached(e, 'w', lambda: fit_text(word, c.W * 0.9, e.o.get('font', 'serif'), fill=col, glow=(col, 26)))
         c.img *= f[..., None]
         place(c, im, c.W / 2, c.fy - c.fw * 1.1, alpha=k, behind=True)
@@ -2059,6 +2066,86 @@ def fx_place_in_grid(c, e):
     comp(c, tile, cx * p, cy * p)
     if p > 0.95: d = Image.new('RGBA', (tw + 8, th + 8), (0, 0, 0, 0)); ImageDraw.Draw(d).rounded_rectangle([2, 2, tw + 5, th + 5], r + 2, outline=(217, 119, 87, 255), width=8); comp(c, d, cx - 4, cy - 4)
 
+
+
+# ---------- reel-fx additions ----------
+# The pixel mascot, drawn from simple blocks (377 x 253 units, origin top-left).
+M_W, M_H = 377.0, 253.0
+M_BODY, M_ARM_L, M_ARM_R = (60, 0, 319, 186), (0, 61, 61, 124), (318, 61, 377, 124)
+M_LEGS = [(60, 185, 95, 253), (125, 185, 158, 253), (219, 185, 252, 253), (282, 185, 319, 253)]
+M_EYES = [(95, 28, 129, 61), (249, 28, 283, 61)]
+
+
+def mascot_img(w, color=HOUSE['orange'], blink=0.0, wave=0.0, legs=0.0):
+    """The mascot as an RGBA image `w` px wide. wave: 0..1 raises the right arm, legs: walk phase."""
+    s = w / M_W; pad = int(w * 0.25)
+    im = Image.new('RGBA', (int(M_W * s) + 2 * pad, int(M_H * s) + 2 * pad), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im); col = tuple(color) + (255,)
+    R = lambda l, t, r, b: [pad + l * s, pad + t * s, pad + r * s, pad + b * s]
+    d.rectangle(R(*M_BODY), fill=col)
+    for i, (l, t, r, b) in enumerate(M_LEGS):
+        lift = max(0.0, math.sin(legs + i * math.pi * 0.5)) * 22 if legs else 0
+        d.rectangle(R(l, t, r, b - lift), fill=col)
+    d.rectangle(R(*M_ARM_L), fill=col)
+    # right arm swings up around its shoulder joint
+    l, t, r, b = M_ARM_R; px, py = l, (t + b) / 2; a = math.radians(-50 * wave)
+    pts = [(l, t), (r, t), (r, b), (l, b)]
+    rot = [(px + (x - px) * math.cos(a) - (y - py) * math.sin(a), py + (x - px) * math.sin(a) + (y - py) * math.cos(a)) for x, y in pts]
+    d.polygon([(pad + x * s, pad + y * s) for x, y in rot], fill=col)
+    for (l, t, r, b) in M_EYES:
+        cy = (t + b) / 2; hh = (b - t) / 2 * (1 - 0.88 * blink)
+        d.rectangle(R(l, cy - hh, r, cy + hh), fill=(20, 17, 16, 255))
+    return im
+
+
+def bubble_img(text, size, fg=HOUSE['black'], bg=HOUSE['white'], tail='left'):
+    """A rounded speech bubble with a small tail."""
+    f = font('inter', size); tw = f.getlength(text); bb = f.getbbox(text)
+    px, py = size * 0.6, size * 0.45; w, h = int(tw + 2 * px), int(bb[3] - bb[1] + 2 * py); th = int(size * 0.5)
+    im = Image.new('RGBA', (w, h + th), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], int(h * 0.45), fill=tuple(bg) + (255,))
+    tx = w * (0.25 if tail == 'left' else 0.75)
+    d.polygon([(tx - th * 0.7, h - 2), (tx + th * 0.7, h - 2), (tx, h + th)], fill=tuple(bg) + (255,))
+    d.text((px - bb[0], py - bb[1]), text, font=f, fill=tuple(fg) + (255,))
+    return shadowed(im, blur=max(6, size // 4), dy=size // 6, alpha=110)
+
+
+@effect('mascot', 'the pixel mascot drops in beside your head, waves, and can say a line in a speech bubble')
+def fx_mascot(c, e):
+    lt, d = c.lt, e.d
+    side = e.o.get('side') or ('left' if c.fx > c.W / 2 else 'right')   # the side with more room
+    sgn = -1 if side == 'left' else 1
+    w = float(e.o.get('size', 1.0)) * clamp(c.fw * 0.8, c.W * 0.14, c.W * 0.24)
+    x = clamp(c.fx + sgn * (c.fw * 1.0 + w * 0.55), w * 0.6, c.W - w * 0.6)
+    land = c.fy - c.fw * float(e.o.get('y', 0.25))  # feet line, beside your head (in the empty space)
+    top = -w
+    col = rgb(e.o.get('color'), HOUSE['orange'])
+    # fall in (gravity), squash on landing, idle bob, hop away at the end
+    t_fall, t_out = 0.42, min(0.4, d * 0.25)
+    if lt < t_fall:
+        p = lt / t_fall; y = top + (land - top) * p * p; sx = 0.92; sy = 1.1
+    else:
+        k = lt - t_fall; sq = math.exp(-k * 9) * math.cos(k * 26)
+        sx, sy = 1 + 0.22 * sq, 1 - 0.22 * sq
+        y = land - abs(math.sin(k * 3.2)) * w * 0.04 * clamp(k / 0.6)
+    a = 1.0
+    if lt > d - t_out:
+        q = (lt - (d - t_out)) / t_out; y -= (q * 1.4 - q * q * 0.4) * (land - top); a = 1 - q * q; sx, sy = 0.92, 1.1
+    wave = max(0.0, math.sin((lt - 0.7) * 9)) if 0.7 < lt < 1.75 else 0.0
+    blink = math.sin((lt - 1.9) / 0.16 * math.pi) if 1.9 < lt < 2.06 else 0.0
+    im = mascot_img(w, col, blink=blink, wave=wave)
+    im = im.resize((max(1, int(im.width * sx)), max(1, int(im.height * sy))), Image.BILINEAR)
+    pad_bottom = im.height * 0.25 / 1.5            # the image has padding around the body
+    place(c, im, x, y - im.height / 2 + pad_bottom, alpha=a, behind=True)   # anything overlapping you goes behind you
+    # optional speech bubble, pops in after landing
+    if e.o.get('text') and lt > 0.55:
+        b = cached(e, 'bubble', lambda: bubble_img(e.o['text'], max(22, int(w * 0.17)), tail='left' if sgn > 0 else 'right'))
+        k = ease_back((lt - 0.55) / 0.3)
+        m = c.W * 0.03
+        bx = x - sgn * (w * 0.1 - b.width * 0.25)   # the tail points down at the mascot
+        bx = clamp(bx, b.width / 2 + m, c.W - b.width / 2 - m)
+        by = max(b.height / 2 + m, y - w * 0.82 - b.height / 2)
+        place(c, b, bx, by, scale=max(0.01, k), alpha=a * clamp((lt - 0.55) / 0.1), behind=True)
 
 
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
