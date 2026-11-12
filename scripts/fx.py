@@ -25,6 +25,8 @@ WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'inter': (32, 800),
 # Instagram covers the bottom of a reel (name, caption, buttons). Graphics placed with place()
 # never go below this fraction of the frame height. Plan key "safe" or --safe changes it (1 = off).
 SAFE = 0.65
+# Graphics that sit above your head start below this fraction (raised by claude-bar so nothing hides under it).
+TOP = 0.02
 
 HOUSE = {'black': (17, 17, 17), 'white': (255, 255, 255), 'cream': (246, 236, 223), 'orange': (241, 91, 69),
          'accent': (232, 102, 58), 'gold': (242, 165, 22), 'green': (53, 168, 83)}
@@ -212,8 +214,8 @@ def card(im, w, radius=0.07):
     src = src.crop((l, t, l + w, t + h)).convert('RGBA')
     m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], int(w * radius), fill=255)
     src.putalpha(m)
-    ImageDraw.Draw(src).rounded_rectangle([0, 0, w - 1, h - 1], int(w * radius), outline=(0, 0, 0, 70), width=2)
-    return shadowed(src, blur=max(6, w // 16), dy=w // 22, alpha=150)
+    ImageDraw.Draw(src).rounded_rectangle([0, 0, w - 1, h - 1], int(w * radius), outline=(246, 236, 223, 150), width=max(2, w // 120))
+    return shadowed(src, blur=max(8, w // 12), dy=w // 20, alpha=140)
 
 
 def vary(im, i):
@@ -234,7 +236,8 @@ def fx_noise(c, e):
     cw = int(c.W * float(e.o.get('size', 0.34)))
     def setup():
         rnd = random.Random(7); n = min(16, max(4, int(e.d / 0.22)))
-        return [(rnd.uniform(0.14, 0.86), rnd.uniform(0.12, 0.52), rnd.uniform(-7, 7)) for _ in range(n)]
+        y0 = max(0.12, TOP + cw * 16 / 9 / 2 / c.H * 0.9)
+        return [(rnd.uniform(0.14, 0.86), rnd.uniform(y0, max(y0, 0.46)), rnd.uniform(-7, 7)) for _ in range(n)]
     pos = cached(e, 'pos', setup)
     cards = cached(e, 'cards', lambda: [card(vary(im, i) if e.o.get('images') is None else im, cw) for i, im in enumerate(e.cards)])
     out = clamp((e.d - c.lt) / 0.2)
@@ -291,23 +294,21 @@ def fx_locked_on(c, e):
     place(c, pill, c.fx, c.fy + s * 1.25 + pill.height, alpha=clamp((c.lt - 0.15) / 0.15) * al, guard=True)
 
 
-@effect('orbit', 'your reels circle your head: in front at the bottom, behind you at the top')
+@effect('orbit', 'your reels circle your head: the near side passes above you, the far side behind you')
 def fx_orbit(c, e):
-    K = int(e.o.get('count', 6)); cw = int(c.W * float(e.o.get('size', 0.2)))
+    K = int(e.o.get('count', 7)); cw = int(c.W * float(e.o.get('size', 0.17)))
     cards = cached(e, 'cards', lambda: [card(vary(im, i) if e.o.get('images') is None else im, cw) for i, im in enumerate(e.cards)])
-    intro, out = ease_out(c.lt / 0.4), clamp((e.d - c.lt) / 0.25)
-    rx, ry = c.W * 0.38 * intro, max(c.fw * 1.5, c.H * 0.1)
-    oy = c.fy + c.fw * 0.9
-    ch = cw * 16 / 9 * 0.51
-    if oy + ry + ch > SAFE * c.H:
-        ry = max(c.fw * 1.0, c.H * 0.08); oy = min(oy, SAFE * c.H - ry - ch)
-    items = []
-    for i in range(K):
-        th = i * 2 * math.pi / K + c.lt * float(e.o.get('speed', 1.9))
-        items.append((math.sin(th), th, i))
-    for depth, th, i in sorted(items):
-        place(c, cards[i % len(cards)], c.fx + rx * math.cos(th), oy + ry * math.sin(th), (0.78 + 0.24 * (depth + 1) / 2) * (0.5 + 0.5 * intro),
-              -6 * math.cos(th), out * clamp(c.lt / 0.15), behind=depth < 0, guard=depth >= 0)
+    dark = cached(e, 'dark', lambda: [Image.fromarray((np.asarray(f, np.float32) * [0.55, 0.55, 0.55, 1]).astype(np.uint8), 'RGBA') for f in cards])
+    intro, out = ease_out(c.lt / 0.55), fade(c, e, 0.3)
+    rx, ry = c.W * 0.40 * intro, c.fw * 0.55
+    cy = c.fy - c.fw * 0.55
+    sp = float(e.o.get('speed', 1.25))
+    items = sorted((-math.sin(i * 2 * math.pi / K + c.lt * sp), i * 2 * math.pi / K + c.lt * sp, i) for i in range(K))
+    for near, th, i in items:              # near = +1 at the top of the ring (closest to camera)
+        k = (near + 1) / 2
+        f = cards[i % len(cards)] if near > -0.2 else dark[i % len(dark)]
+        place(c, f, c.fx + rx * math.cos(th), cy - ry * near, (0.66 + 0.4 * k) * (0.6 + 0.4 * intro),
+              -5 * math.cos(th), out * clamp(c.lt / 0.2) * (0.75 + 0.25 * k), behind=True)
 
 
 @effect('lean-in', 'a fast punch-in on one word')
@@ -1494,7 +1495,8 @@ def comment_sheet(c, e):
     sheet = shadowed(sheet, 22, 10, 120)
     bottom = c.fy - c.fw * 0.5; top = bottom - sheet.height
     s = 1.0
-    if top < H * 0.02: s = max(0.6, (bottom - H * 0.02) / sheet.height)
+    lim = H * max(0.02, float(e.o.get('top', TOP)))
+    if top < lim: s = max(0.6, (bottom - lim) / sheet.height)
     cy = bottom - sheet.height * s / 2 + 3 * u * math.sin(c.lt * 3.2)
     place(c, sheet, W / 2 * 0.5 + c.fx * 0.5, cy, s * (0.85 + 0.15 * ease_back(c.lt / 0.3)), 1.2, al * clamp(c.lt / 0.1), behind=True)
 
@@ -1555,7 +1557,7 @@ def fx_liquid_glass_graph(c, e):
 
 @effect('carousel-spin', 'your reels spin around you in a 3D carousel, then slow to a stop')
 def fx_carousel_spin(c, e):
-    K = int(e.o.get('count', max(6, min(12, len(e.cards))))); cw = int(c.W * float(e.o.get('size', 0.3)))
+    K = int(e.o.get('count', max(6, min(10, len(e.cards))))); cw = int(c.W * float(e.o.get('size', 0.23)))
     def mk():
         out = []
         for i, im in enumerate(e.cards):
@@ -1569,16 +1571,16 @@ def fx_carousel_spin(c, e):
     c.img *= (dim * (1 - c.m) + c.m)[..., None]
     p = clamp(c.lt / e.d); spin = float(e.o.get('turns', 1.1)) * 2 * math.pi * (1 - (1 - p) ** 2.4)
     intro, out = ease_out(c.lt / 0.45), fade(c, e, 0.25)
-    R, ry = c.W * 0.56 * intro, c.H * 0.07
-    cy = min(c.fy + c.fw * 1.8, SAFE * c.H - ry - cw * 16 / 9 * 0.53)
+    R, ry = c.W * 0.52 * intro, c.fw * 0.45
+    cy = c.fy - c.fw * 0.45
     items = sorted((math.cos(i * 2 * math.pi / K + spin), i * 2 * math.pi / K + spin, i) for i in range(K))
     for depth, th, i in items:
         n = len(cards); f, dk = cards[(i * (3 if n % 3 else 2)) % n]; src = f if depth >= 0 else dk  # spread similar covers apart
         sx = max(0.06, abs(math.cos(th)) ** 0.6)
         s = (0.72 + 0.34 * (depth + 1) / 2) * (0.5 + 0.5 * intro)
         w2, h2 = max(2, int(src.width * s * sx)), max(2, int(src.height * s))
-        place(c, src.resize((w2, h2), Image.BILINEAR), c.fx + R * math.sin(th), cy + ry * depth, 1.0, 0,
-              out * clamp(c.lt / 0.12) * (0.85 + 0.15 * depth), behind=depth < 0, guard=depth >= 0)
+        place(c, src.resize((w2, h2), Image.BILINEAR), c.fx + R * math.sin(th), cy - ry * depth, 1.0, 0,
+              out * clamp(c.lt / 0.15) * (0.8 + 0.2 * depth), behind=True)
 
 
 MATCH_TXT = ('one clip went in and every cut came back before lunch while editors once spent whole weeks rebuilding the same '
@@ -1686,7 +1688,7 @@ def fx_led_sign(c, e):
             rows = 11; cols = max(1, round(im.width / im.height * rows))
             mats.append(np.asarray(im.resize((cols, rows), Image.BOX), np.float32) / 255 > 0.42)
         cols = max(m.shape[1] for m in mats) + 2
-        cell = int(min(c.W * 0.96 / cols, c.H * 0.3 / (len(mats) * 12)))
+        cell = int(min(c.W * 0.96 / cols, c.H * float(e.o.get('height', 0.3)) / (len(mats) * 12)))
         L = np.zeros((len(mats) * 12 - 1, cols), np.float32)
         for i, m in enumerate(mats): o = (cols - m.shape[1]) // 2; L[i * 12:i * 12 + 11, o:o + m.shape[1]] = m
         yy, xx = np.mgrid[0:cell, 0:cell].astype(np.float32); rr = np.hypot(xx - cell / 2 + 0.5, yy - cell / 2 + 0.5)
@@ -1702,7 +1704,7 @@ def fx_led_sign(c, e):
     glow = cv2.GaussianBlur(pan, (0, 0), cell * 0.9)
     pan = np.clip(pan + glow * 1.6, 0, 1)
     ph, pw = pan.shape[:2]; x0 = int(c.W / 2 - pw / 2)
-    y0 = int(max(c.H * 0.03, c.fy - c.fw * 0.75 - ph))
+    y0 = int(max(c.H * max(0.03, TOP), c.fy - c.fw * float(e.o.get('gap', 0.75)) - ph))
     xx, yy = grid(c)
     d = ((xx - c.fx) / (c.W * 0.6)) ** 2 + ((yy - (c.fy + c.H * 0.25)) / (c.H * 0.55)) ** 2
     bright = 1 - k * (0.84 - 0.3 * np.clip(1 - d, 0, 1))
@@ -2158,6 +2160,108 @@ def fx_mascot(c, e):
         place(c, b, bx, by, scale=max(0.01, k), alpha=a * clamp((lt - 0.55) / 0.1), behind=True)
 
 
+ACCENT = HOUSE['accent']
+# Bar themes: panel, text, accent (prompt + /reelkit), mascot colour.
+BAR_THEMES = {
+    'ink':    {'bg': (22, 21, 20, 238), 'fg': (246, 236, 223), 'accent': (222, 115, 86), 'mascot': (222, 115, 86), 'line': (246, 236, 223)},
+    'cobalt': {'bg': (30, 64, 220, 245), 'fg': (255, 255, 255), 'accent': (255, 214, 10), 'mascot': (241, 91, 69), 'line': (255, 255, 255)},
+    'lime':   {'bg': (14, 14, 14, 242), 'fg': (255, 255, 255), 'accent': (190, 255, 60), 'mascot': (190, 255, 60), 'line': (190, 255, 60)},
+}
+
+
+def bar_theme(e):
+    th = dict(BAR_THEMES.get(e.o.get('theme', 'ink'), BAR_THEMES['ink']))
+    for k in ('bg', 'fg', 'accent', 'mascot'):
+        if e.o.get(k): th[k] = rgb(e.o[k]) + ((th['bg'][3],) if k == 'bg' else ())
+    return th
+
+
+def bar_chrome(W, bw, bh, th, sc):
+    """The empty terminal window: a solid rounded panel, a hairline, three dots and a title."""
+    u = W / 1080 * sc; r = int(30 * u)
+    im = Image.new('RGBA', (bw, bh), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, bw - 1, bh - 1], r, fill=th['bg'], outline=th['line'] + (60,), width=max(2, int(2 * u)))
+    hh = int(42 * u)
+    for j in range(3):
+        x = 30 * u + j * 24 * u; d.ellipse([x - 7 * u, hh / 2 + 2 * u - 7 * u, x + 7 * u, hh / 2 + 2 * u + 7 * u], fill=th['fg'] + (90,))
+    d.text((bw / 2, hh / 2 + 2 * u), 'claude code  ·  reelkit', font=font('mono', 19 * u), fill=th['fg'] + (150,), anchor='mm')
+    d.line([(r * 0.5, hh + 4 * u), (bw - r * 0.5, hh + 4 * u)], fill=th['fg'] + (34,), width=max(1, int(1.5 * u)))
+    return shadowed(im, blur=int(30 * u), dy=int(16 * u), alpha=140)
+
+
+@effect('claude-bar', 'a Claude Code window in the space above your head types each /reelkit command, with the mascot riding on top')
+def fx_claude_bar(c, e):
+    """cmds: 'second::text|...' in video seconds; text after '//' is a dim hint; empty text clears the line.
+    theme: ink | cobalt | lime (or bg/fg/accent/mascot colours). size: scale (default 1.3). y: top of the window (fraction of height)."""
+    W, H = c.W, c.H; sc = float(e.o.get('size', 1.3)); u = W / 1080 * sc; t = e.start + c.lt
+    th = cached(e, 'th', lambda: bar_theme(e)); fg, acc = th['fg'], th['accent']
+    bw, bh = int(W * float(e.o.get('width', 0.9))), int(128 * u)
+    chrome = cached(e, 'chrome', lambda: bar_chrome(W, bw, bh, th, sc))
+    pad = (chrome.width - bw) // 2
+    cmds = []
+    for part in e.o.get('cmds', '').split('|'):
+        if '::' in part: k, v = part.split('::', 1); cmds.append((float(k), v))
+    cur = None
+    for k, v in sorted(cmds):
+        if k <= t: cur = (k, v)
+    k_in = ease_back(c.lt / 0.45); al = clamp(c.lt / 0.2) * fade(c, e, 0.3)
+    top = H * float(e.o.get('y', 0.115))
+    hk = 0.0   # hide: 'a-b' ranges in video seconds where the window slides up out of the way
+    for rg in filter(None, e.o.get('hide', '').split('|')):
+        a_, b_ = (float(v) for v in rg.split('-'))
+        hk = max(hk, ease_inout((t - a_) / 0.35) * (1 - ease_inout((t - b_) / 0.35)))
+    k_in *= 1 - hk; al *= 1 - hk * 0.3
+    cy = top + bh / 2 - (1 - k_in) * (bh + top)
+    im = chrome.copy(); d = ImageDraw.Draw(im)
+    fs = 44 * u; f = font('mono', fs); x0 = pad + 34 * u; ty = pad + 46 * u + (bh - 46 * u) / 2
+    d.text((x0, ty), '>', font=f, fill=acc + (255,), anchor='lm'); x = x0 + f.getlength('> ')
+    typed_all = False
+    if cur and cur[1]:
+        cmd, _, hint = cur[1].partition('//'); cmd = cmd.rstrip()
+        rate = 0.042; n = int(clamp((t - cur[0]) / (rate * max(1, len(cmd)))) * len(cmd) + 1e-6)
+        shown = cmd[:n]; typed_all = n >= len(cmd)
+        word, sp, rest = shown.partition(' ')
+        if word.startswith('/'):
+            d.text((x, ty), word, font=f, fill=acc + (255,), anchor='lm'); x += f.getlength(word); shown = sp + rest
+        d.text((x, ty), shown, font=f, fill=fg + (255,), anchor='lm'); x += f.getlength(shown)
+        done = t - cur[0] - rate * len(cmd)
+        if typed_all and hint and done > 0.12:
+            d.text((x + f.getlength(' '), ty), hint.strip(), font=font('mono', fs * 0.6), fill=fg + (int(165 * clamp((done - 0.12) / 0.25)),), anchor='lm')
+        if typed_all and done > 0.05 and not hint.strip():   # enter: a check pops in on the right
+            q = ease_back((done - 0.05) / 0.3); ga = int(255 * clamp(q))
+            cx_ = pad + bw - 48 * u; r_ = 19 * u * (0.6 + 0.4 * q)
+            d.ellipse([cx_ - r_, ty - r_, cx_ + r_, ty + r_], fill=acc + (ga,))
+            ink = th['bg'][:3]
+            d.line([(cx_ - r_ * 0.45, ty + r_ * 0.02), (cx_ - r_ * 0.1, ty + r_ * 0.38), (cx_ + r_ * 0.5, ty - r_ * 0.35)], fill=ink + (ga,), width=max(3, int(4.5 * u)), joint='curve')
+    typing = bool(cur and cur[1] and not typed_all)
+    has_hint = bool(cur and cur[1] and '//' in cur[1] and typed_all)
+    if not has_hint and (typing or int(t * 2.2) % 2 == 0):
+        cw_ = fs * 0.55; d.rectangle([x + 4 * u, ty - fs * 0.42, x + 4 * u + cw_, ty + fs * 0.42], fill=fg + (220,))
+    place(c, im, W / 2, cy, alpha=al)
+    # the mascot stands on the window's top edge
+    if e.o.get('mascot_on', '1') in ('0', 'off', 'no'): return
+    mw = W * float(e.o.get('msize', 0.2)); mx = W / 2 + bw / 2 - mw * 0.95
+    feet = cy - bh / 2 + 4 * u
+    drop = 0.35; lt = c.lt
+    if lt < drop: return
+    q = lt - drop; t_fall = 0.34
+    if q < t_fall:
+        p_ = q / t_fall; y = -mw + (feet + mw) * p_ * p_; sx, sy = 0.92, 1.1
+    else:
+        k = q - t_fall; sq = math.exp(-k * 9) * math.cos(k * 26); sx, sy = 1 + 0.2 * sq, 1 - 0.2 * sq; y = feet
+        y -= abs(math.sin(k * 2.6)) * mw * 0.025
+        for k0, v in cmds:   # hop when a command is entered
+            if v and not v.startswith('//'):
+                te = k0 + 0.042 * len(v.partition('//')[0].rstrip())
+                if 0 <= t - te < 0.4: y -= math.sin((t - te) / 0.4 * math.pi) * mw * 0.3
+    wave = max(0.0, math.sin((lt - 0.9) * 9)) if 0.9 < lt < 1.95 else 0.0
+    bt = (t % 2.9); blink_ = math.sin(bt / 0.16 * math.pi) if bt < 0.16 else 0.0
+    m = mascot_img(mw, th['mascot'], blink=blink_, wave=wave)
+    m = m.resize((max(1, int(m.width * sx)), max(1, int(m.height * sy))), Image.BILINEAR)
+    bb = m.getbbox() or (0, 0, m.width, m.height)
+    place(c, m, mx, y - (bb[3] - m.height / 2), alpha=fade(c, e, 0.3))   # feet exactly on the window edge
+
+
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
 _PRIV = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fx_private.py')
 if os.path.exists(_PRIV): exec(open(_PRIV).read(), globals())
@@ -2275,6 +2379,7 @@ def main():
     if a.plan:
         src, dst = a.args[0], a.args[1]; plan = json.load(open(a.plan))
         if isinstance(plan, dict) and 'safe' in plan: globals()['SAFE'] = float(plan['safe'])
+        if isinstance(plan, dict) and 'top' in plan: globals()['TOP'] = float(plan['top'])
         plan = plan.get('effects', plan) if isinstance(plan, dict) else plan
     else:
         name, src, dst = a.args[0], a.args[1], a.args[2]
