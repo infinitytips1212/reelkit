@@ -27,6 +27,9 @@ WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'inter': (32, 800),
 SAFE = 0.65
 # Graphics that sit above your head start below this fraction (raised by claude-bar so nothing hides under it).
 TOP = 0.02
+PLAN_TOP = 0.02
+# How far below your face the 'guard' reaches (in face widths). 1.35 reaches your neck; plans can set "guard": 1.0.
+GUARD_V = 1.35
 
 HOUSE = {'black': (17, 17, 17), 'white': (255, 255, 255), 'cream': (246, 236, 223), 'orange': (241, 91, 69),
          'accent': (232, 102, 58), 'gold': (242, 165, 22), 'green': (53, 168, 83)}
@@ -143,7 +146,7 @@ def comp(c, layer, x, y, alpha=1.0, behind=False, guard=False):
     if behind: a = a * (1 - m)
     elif guard:
         yy, xx = np.ogrid[y0:y1, x0:x1]
-        e = ((xx - c.fx) / (c.fw * 0.95)) ** 2 + ((yy - c.fy) / (c.fw * 1.35)) ** 2
+        e = ((xx - c.fx) / (c.fw * 0.95)) ** 2 + ((yy - (c.fy - c.fw * 0.08)) / (c.fw * GUARD_V)) ** 2
         a = a * (1 - np.clip((1.2 - e) / 0.3, 0, 1)[..., None] * m)
     dst = c.img[y0:y1, x0:x1]
     dst[:] = dst * (1 - a) + L[..., :3] * a
@@ -578,9 +581,9 @@ def fx_reel_frame(c, e):
     mm = np.zeros_like(c.m); mm[y0:y0 + ih, x0:x0 + iw] = cv2.resize(c.m, (iw, ih)); c.m = mm
     c.fx, c.fy, c.fw = x0 + c.fx * s, y0 + c.fy * s, c.fw * s
     ic = cached(e, 'ic', lambda: shadowed(reel_icons(c.W * 0.075), 6, 2, 120))
-    comp(c, ic, x0 + iw - ic.width - c.W * 0.01, y0 + ih * 0.52, k)
+    comp(c, ic, x0 + iw - ic.width - c.W * 0.01, y0 + ih * 0.34, k)
     hdl = text_img(e.o.get('text', '@your.handle'), c.W * 0.032, 'ui', (255, 255, 255), shadow=4)
-    comp(c, hdl, x0 + c.W * 0.03, y0 + ih - hdl.height - c.W * 0.04, k)
+    comp(c, hdl, x0 + c.W * 0.03, min(y0 + ih - hdl.height - c.W * 0.04, SAFE * c.H - hdl.height - c.H * 0.015), k)
 
 
 @effect('shortcut-rain', 'keyboard keys rain down behind you')
@@ -606,7 +609,7 @@ def fx_shortcut_rain(c, e):
 def fx_reject_stamp(c, e):
     word = e.o.get('text', 'REJECTED').upper(); col = rgb(e.o.get('color'), (214, 40, 40))
     def build():
-        t = fit_text(word, c.W * 0.62, 'bold', 200, fill=col); pad = int(t.height * 0.12)
+        t = fit_text(word, c.W * 0.62 * float(e.o.get('size', 1)), 'bold', 200, fill=col); pad = int(t.height * 0.12)
         im = Image.new('RGBA', (t.width + 4 * pad, t.height + 2 * pad), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
         d.rounded_rectangle([3, 3, im.width - 4, im.height - 4], 18, outline=col + (255,), width=max(6, pad // 2))
         im.alpha_composite(t, (2 * pad, pad))
@@ -681,9 +684,9 @@ def fx_cover_star(c, e):
     title = e.o.get('text', 'VIBE').upper(); col = rgb(e.o.get('color'), (232, 36, 52))
     mast = cached(e, 'm', lambda: fit_text(title, c.W * 0.92, 'bold', 600, fill=col))
     mast_h = min(mast.height, c.H * 0.24)
-    place(c, mast, c.W / 2, c.H * 0.035 + mast_h / 2 - (1 - k) * mast_h, mast_h / mast.height, 0, al * k, behind=True)
+    place(c, mast, c.W / 2, c.H * max(0.035, TOP + 0.02) + mast_h / 2 - (1 - k) * mast_h, mast_h / mast.height, 0, al * k, behind=True)
     iss = cached(e, 'i', lambda: text_img(e.o.get('issue', 'THE AI ISSUE  ·  2026'), c.W * 0.025, 'mono', (255, 255, 255), shadow=3))
-    place(c, iss, c.W / 2, c.H * 0.03, alpha=al * k, behind=True)
+    place(c, iss, c.W / 2, c.H * max(0.03, TOP + 0.005), alpha=al * k, behind=True)
     lines = e.o.get('lines', '46 effects|you can steal|no editor|needed').split('|')
     y = c.H * 0.5
     for j, ln in enumerate(lines):
@@ -698,7 +701,7 @@ def fx_cover_star(c, e):
             w = rnd.choice((2, 2, 3, 5)); d.rectangle([x, 6, x + w - 1, bh - 18], fill=(0, 0, 0, 255)); x += w + rnd.choice((2, 3, 4))
         return im
     bc = cached(e, 'b', barcode)
-    comp(c, bc, c.W * 0.95 - bc.width, c.H * 0.93 - bc.height, al * k, guard=True)
+    comp(c, bc, c.W * 0.95 - bc.width, c.H * min(0.93, SAFE) - bc.height, al * k, guard=True)
 
 
 @effect('scribble', 'marker doodles draw themselves around you')
@@ -709,7 +712,7 @@ def fx_scribble(c, e):
     angs = np.linspace(-1.9, -1.9 + 2 * math.pi * 1.08, 70)
     ring = [(c.fx + rx * (1 + 0.04 * math.sin(3 * a)) * math.cos(a), c.fy + ry * (1 + 0.04 * math.cos(2 * a)) * math.sin(a)) for a in angs]
     hand_path(d, ring, col, wd, ease_inout(c.lt / 0.5))
-    lx, ly = clamp(c.fx + c.fw * 2.3, c.W * 0.2, c.W * 0.8), max(c.H * 0.08, c.fy - c.fw * 2.4)
+    lx, ly = clamp(c.fx + c.fw * 2.3, c.W * 0.2, c.W * 0.8), max(c.H * max(0.08, TOP + 0.03), c.fy - c.fw * 2.4)
     pts = arrow_pts(lx - c.fw * 0.3, ly + c.fw * 0.5, c.fx + rx * 0.85, c.fy - ry * 0.75, -0.3)
     k2 = ease_out((c.lt - 0.45) / 0.35)
     if k2 > 0: hand_path(d, pts, col, wd, k2)
@@ -728,6 +731,10 @@ def fx_scribble(c, e):
 # ---------- pack 2: app-style effects (added 21 Oct 2026) ----------
 def pop(c, t0, dur=0.3): return ease_back((c.lt - t0) / dur) if c.lt > t0 else 0.0
 def fade(c, e, t=0.2): return clamp((e.d - c.lt) / t)
+
+
+def tight(m, lo=0.45, hi=0.8):
+    x = np.clip((m - lo) / (hi - lo), 0, 1); return x * x * (3 - 2 * x)
 GREEN, BLUE, PURPLE, ORANGE, RED = (34, 197, 94), (10, 132, 255), (124, 92, 255), (217, 119, 87), (238, 34, 34)
 
 
@@ -863,17 +870,17 @@ def fx_red_collage(c, e):
     place(c, w, c.W / 2, max(w.height * 0.42, c.fy - c.fw * 1.05), s, 0, clamp(c.lt / 0.12) * al, behind=True)
     lines = e.o.get('lines', 'ONE CLIP.|22 EFFECTS.|ZERO APPS.').split('|')
     size = cached(e, 'sz', lambda: lines_fit(lines, c.W * 0.8, 'uib', int(c.W * 0.14)))
-    y = max(c.H * 0.5, c.fy + c.fw * 1.55)
+    y = float(e.o['lines_y']) * c.H if 'lines_y' in e.o else max(c.H * 0.5, c.fy + c.fw * 1.55)
     for j, ln in enumerate(lines):
         im = cached(e, ('l', j), lambda: text_img(ln, size, 'uib', red if j == 1 else (255, 255, 255), shadow=8))
         kk = clamp((c.lt - 0.18 - 0.13 * j) / 0.16)
-        if kk > 0: place(c, im, c.W * 0.05 + im.width / 2, y + im.height / 2, 1.4 - 0.4 * ease_out(kk), 0, kk * al, guard=True)
+        if kk > 0: place(c, im, c.W * 0.05 + im.width / 2, y + im.height / 2, 1.4 - 0.4 * ease_out(kk), 0, kk * al, guard='lines_y' not in e.o)
         y += size * 1.0
     tag = cached(e, 'tag', lambda: text_img(e.o.get('tag', 'REC  ·  RED COLLAGE'), c.W * 0.027, 'mono', red))
     dot = Image.new('RGBA', (int(tag.height * 0.4),) * 2, (0, 0, 0, 0)); ImageDraw.Draw(dot).ellipse([0, 0, dot.width - 1, dot.width - 1], fill=red + (255,))
     blink = 1.0 if int(c.lt * 2.5) % 2 == 0 else 0.35
-    place(c, dot, c.W * 0.07, c.H * 0.93, alpha=al * k * blink, guard=True)
-    place(c, tag, c.W * 0.07 + dot.width + tag.width / 2, c.H * 0.93, alpha=al * k, guard=True)
+    place(c, dot, c.W * 0.07, c.H * min(0.93, SAFE - 0.015), alpha=al * k * blink, guard=True)
+    place(c, tag, c.W * 0.07 + dot.width + tag.width / 2, c.H * min(0.93, SAFE - 0.015), alpha=al * k, guard=True)
 
 
 @effect('split-headline', 'a clean headline card slides down and pushes you into the bottom of the frame')
@@ -885,7 +892,7 @@ def fx_split_headline(c, e):
     lay = Image.new('RGBA', (W, int(ch)), (244, 242, 236, 255)); d = ImageDraw.Draw(lay)
     lines = e.o.get('text', 'Claude|edits my|reels.').split('|'); hl = e.o.get('hl', 'edits')
     S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.135))); f = font('uib', S)
-    x0, y0 = W * 0.07, ch * 0.13
+    x0, y0 = W * 0.07, max(ch * 0.13, c.H * (TOP + 0.015))
     for j, ln in enumerate(lines):
         kj = clamp((c.lt - 0.12 - 0.08 * j) / 0.18)
         if kj <= 0: continue
@@ -919,11 +926,12 @@ def fx_pastel_word(c, e):
     lum = (c.img @ np.float32([0.299, 0.587, 0.114]))[..., None]
     bg = _grad[(W, H)] * (0.86 + 0.22 * lum)
     you = np.clip(c.img * 0.93 + 0.05, 0, 1)
+    m = tight(m, 0.6, 0.92)
     c.img = c.img * (1 - k) + (you * m + bg * (1 - m)) * k
     word = cached(e, 'w', lambda: fit_text(e.o.get('text', 'REELS').upper(), W * 0.96, 'uib', 700, fill=(255, 255, 255)))
     dk = ease_out(c.lt / 0.45)
     place(c, shadowed(word, 24, 12, 60), W / 2, max(word.height * 0.45, c.fy - c.fw * 1.2) - (1 - dk) * H * 0.06, 1, 0, al * clamp(c.lt / 0.15), behind=True)
-    cw, chh = W * 0.86, W * 0.15; cy = H * 0.865 + (1 - ease_out((c.lt - 0.15) / 0.35)) * H * 0.2
+    cw, chh = W * 0.86, W * 0.15; cy = H * float(e.o.get('card_y', 0.865)) + (1 - ease_out((c.lt - 0.15) / 0.35)) * H * 0.2
     card_ = rrect(cw, chh, chh * 0.3, (255, 255, 255, 248)); d = ImageDraw.Draw(card_)
     av = face_chip(c, e, chh * 0.64); card_.alpha_composite(av, (int(chh * 0.18), int((chh - av.height) / 2)))
     d.text((chh * 0.98, chh * 0.38), e.o.get('name', DEF_NAME), font=font('uib', chh * 0.22), fill=(20, 20, 22, 255), anchor='lm')
@@ -951,6 +959,7 @@ def fx_check_pills(c, e):
         for x in range(0, W, st): g[:, x:x + lw] = np.float32([0.86, 0.875, 0.9])
         for y in range(0, H, st): g[y:y + lw] = np.float32([0.86, 0.875, 0.9])
         _gp[(W, H)] = g
+    m = tight(m, 0.6, 0.92)
     c.img = c.img * (1 - k) + (c.img * m + _gp[(W, H)] * (1 - m)) * k
     def board(i, title):
         bw = int(W * 0.44); im = rrect(bw, int(bw * 1.12), bw * 0.07, (255, 255, 255, 255)); d = ImageDraw.Draw(im)
@@ -996,13 +1005,13 @@ def red_timeline(c, e):
     secs = 21 + int(c.lt * 3)
     rec = text_img(f"{e.o.get('tc', 'REC')} 00:{secs:02d}", W * 0.032, 'mono', red)
     dot = Image.new('RGBA', (int(rec.height * 0.36),) * 2, (0, 0, 0, 0)); ImageDraw.Draw(dot).ellipse([0, 0, dot.width - 1, dot.width - 1], fill=red + (255,))
-    comp(c, dot, W * 0.065 - sl, H * 0.075 + (rec.height - dot.height) / 2, tb * (1.0 if int(c.lt * 2.5) % 2 == 0 else 0.35), guard=True)
-    comp(c, rec, W * 0.065 + dot.width * 1.4 - sl, H * 0.075, tb, guard=True)
+    comp(c, dot, W * 0.065 - sl, H * max(0.075, TOP + 0.01) + (rec.height - dot.height) / 2, tb * (1.0 if int(c.lt * 2.5) % 2 == 0 else 0.35), guard=True)
+    comp(c, rec, W * 0.065 + dot.width * 1.4 - sl, H * max(0.075, TOP + 0.01), tb, guard=True)
     ti = cached(e, 'ti', lambda: text_img(e.o.get('text', 'AUTO-EDIT'), W * 0.13, 'uib', (255, 255, 255), shadow=10))
-    comp(c, ti, W * 0.055 - sl, H * 0.075 + rec.height * 0.85, tb, guard=True)
+    comp(c, ti, W * 0.055 - sl, H * max(0.075, TOP + 0.01) + rec.height * 0.85, tb, guard=True)
     su = cached(e, 'su', lambda: text_img(e.o.get('sub', 'timeline by Claude'), W * 0.037, 'uim', red))
-    comp(c, su, W * 0.065 - sl, H * 0.075 + rec.height * 0.85 + ti.height * 0.88, tb, guard=True)
-    pw, phh = int(W * 0.9), int(H * 0.19); py = H * 0.755 + (1 - ease_out((c.lt - 0.1) / 0.35)) * H * 0.3
+    comp(c, su, W * 0.065 - sl, H * max(0.075, TOP + 0.01) + rec.height * 0.85 + ti.height * 0.88, tb, guard=True)
+    pw, phh = int(W * 0.9), int(H * float(e.o.get('panel_h', 0.19))); py = min(H * 0.755, SAFE * H - phh - H * 0.012) + (1 - ease_out((c.lt - 0.1) / 0.35)) * H * 0.3
     lay = rrect(pw, phh, W * 0.03, (14, 10, 10, 215), (255, 70, 60, 90), 2); d = ImageDraw.Draw(lay)
     for j in range(4): d.text((pw * (0.05 + 0.3 * j), phh * 0.12), f'00:0{j}', font=font('mono', W * 0.022), fill=(170, 170, 175, 255), anchor='lm')
     clips = cached(e, 'cl', lambda: [(r, a, b) for r, segs in enumerate([[(0.04, 0.24), (0.26, 0.5), (0.53, 0.76), (0.79, 0.96)],
@@ -1025,7 +1034,7 @@ def fx_headline_box(c, e):
     face_cam(c, 1 + (float(e.o.get('zoom', 1.2)) - 1) * ease_out(c.lt / 0.22), 0.45)
     W = c.W; al = fade(c, e); lines = e.o.get('text', 'How I got Claude|to edit my reels.').split('|')
     S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.085)))
-    y = max(c.H * 0.06, c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
+    y = max(c.H * max(0.06, TOP), c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
     for j, ln in enumerate(lines):
         kj = clamp((c.lt - 0.1 - 0.12 * j) / 0.18)
         if kj <= 0: y += S * 1.3; continue
@@ -1052,7 +1061,7 @@ def fx_profile_wall(c, e):
         im.alpha_composite(gr, ((pw - gr.width) // 2, int(ph * 0.14))); return shadowed(im, 20, 10, 110)
     wl = cached(e, 'wall', wall)
     place(c, wl, W / 2, H * 0.04 + wl.height / 2, 0.94 + 0.06 * ease_out(c.lt / 0.35), 0, al * clamp(c.lt / 0.15), behind=True)
-    cw, chh = W * 0.76, W * 0.25; cy = min(H * 0.86, c.fy + c.fw * 2.6)
+    cs = float(e.o.get('card_scale', 1)); cw, chh = W * 0.76 * cs, W * 0.25 * cs; cy = float(e.o['card_y']) * H if 'card_y' in e.o else min(H * 0.86, c.fy + c.fw * 2.6)
     g = glass(c, cw, chh, chh * 0.18, W / 2, cy, amt=0.5, tint=(12, 12, 14)); d = ImageDraw.Draw(g)
     target = int(e.o.get('count', 197000)); n = int(target * ease_out((c.lt - 0.2) / 0.8))
     swap = clamp((c.lt - 1.15) / 0.2)
@@ -1071,7 +1080,7 @@ def fx_profile_wall(c, e):
 def fx_tier_list(c, e):
     W, H = c.W, c.H; al = fade(c, e)
     ttl = cached(e, 'ttl', lambda: fit_text(e.o.get('title', 'best way to edit a reel?'), W * 0.88, 'serif', int(W * 0.11), fill=YELLOW, shadow=8))
-    place(c, ttl, W / 2, max(ttl.height * 0.6, c.fy - c.fw * 1.65), 0.9 + 0.1 * ease_out(c.lt / 0.3), 0, al * clamp(c.lt / 0.15), behind=True)
+    place(c, ttl, W / 2, max(ttl.height * 0.6 + c.H * TOP, c.fy - c.fw * 1.65), 0.9 + 0.1 * ease_out(c.lt / 0.3), 0, al * clamp(c.lt / 0.15), behind=True)
     tiers = [('S', (255, 127, 127)), ('A', (255, 191, 127)), ('B', (255, 223, 127)), ('C', (191, 255, 127)), ('D', (127, 191, 255)), ('F', (191, 127, 255))]
     cw = int(W * 0.66); rh = int(W * 0.082); pad = int(W * 0.015); chh = pad * 2 + rh * 6 + pad * 5
     fill = dict(zip('BCDF', e.o.get('others', 'templates|timelines|apps|doing it by hand').split('|')))
@@ -1088,16 +1097,20 @@ def fx_tier_list(c, e):
                 d.text((pad * 3 + rh + rh * 0.2, y + rh / 2), fill[lab], font=f, fill=(225, 225, 230, 255), anchor='lm')
         return shadowed(im, 18, 10, 120)
     bd = cached(e, 'bd', board)
-    top = min(H * 0.95 - bd.height, max(c.fy + c.fw * 1.4, H * 0.45))
-    k = ease_back(c.lt / 0.35); bx, by = W / 2, top + bd.height / 2 + (1 - k) * H * 0.15
-    place(c, bd, bx, by, 1, 0, al * clamp(c.lt / 0.12), guard=True)
+    bs = float(e.o.get('board_scale', 1))
+    if bs != 1:
+        bd = cached(e, 'bd2', lambda: bd.resize((int(bd.width * bs), int(bd.height * bs)), Image.LANCZOS)); rh, pad = rh * bs, pad * bs
+    top = float(e.o['board_y']) * H if 'board_y' in e.o else min(H * 0.95 - bd.height, max(c.fy + c.fw * 1.4, H * 0.45))
+    k = ease_back(c.lt / 0.35); bx, by = W * float(e.o.get('board_x', 0.5)), top + bd.height / 2 + (1 - k) * H * 0.15
+    place(c, bd, bx, by, 1, 0, al * clamp(c.lt / 0.12), guard=bs == 1)
     tile = cached(e, 'tile', lambda: shadowed(rrect(int(rh * 2.6), int(rh * 0.8), rh * 0.16, ORANGE + (255,)), 8, 4, 100))
+    tbehind = 'board_y' in e.o
     tx = cached(e, 'tx', lambda: text_img(e.o.get('item', 'Claude'), rh * 0.36, 'uib', (255, 255, 255)))
     tl = tile.copy(); tl.alpha_composite(tx, ((tl.width - tx.width) // 2, (tl.height - tx.height) // 2 - 3))
-    sx, sy = W * 0.86, c.fy + c.fw * 0.4
-    ex = bx - bd.width / 2 + 18 + pad * 3 + rh + tile.width / 2 - 10; ey = by - bd.height / 2 + 18 + pad + rh / 2
+    sx, sy = (W * 0.86, c.fy - c.fw * 1.1) if tbehind else (W * 0.86, c.fy + c.fw * 0.4)
+    ex = bx - bd.width / 2 + 18 * bs + pad * 3 + rh + tile.width / 2 - 10; ey = by - bd.height / 2 + 18 * bs + pad + rh / 2
     q = ease_back((c.lt - 0.45) / 0.4)
-    if c.lt > 0.4: place(c, tl, sx + (ex - sx) * q, sy + (ey - sy) * q, 1.25 - 0.25 * clamp(q), 18 * (1 - clamp(q)), al, guard=True)
+    if c.lt > 0.4: place(c, tl, sx + (ex - sx) * q, sy + (ey - sy) * q, (1.25 - 0.25 * clamp(q)) * bs, 18 * (1 - clamp(q)), al, guard=not tbehind, behind=tbehind and q < 0.85)
 
 
 @effect('broll-split', 'split screen: b-roll on top with a price-tag sticker, you on the bottom')
@@ -1127,7 +1140,7 @@ def fx_phone_fan(c, e):
     W, H = c.W, c.H; al = fade(c, e)
     lines = e.o.get('text', '46 effects.|zero editing apps.').split('|')
     S = cached(e, 'sz', lambda: lines_fit(lines, W * 0.84, 'uib', int(W * 0.08)))
-    y = max(H * 0.06, c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
+    y = max(H * max(0.06, TOP), c.fy - c.fw * 1.3 - S * 1.3 * len(lines))
     for j, ln in enumerate(lines):
         kj = clamp((c.lt - 0.05 - 0.1 * j) / 0.18); last = j == len(lines) - 1
         t = cached(e, ('t', j), lambda: text_img(ln, S, 'uib', (16, 16, 18) if last else (255, 255, 255), shadow=0 if last else 9))
@@ -1144,9 +1157,11 @@ def fx_phone_fan(c, e):
     ph_ = cached(e, 'ph', lambda: [phone(i) for i in range(4)])
     cx = W / 2 * 0.5 + c.fx * 0.5; cy = max(c.fy + c.fw * 1.1 + ph / 2, H * 0.62)
     cy = min(cy, H - ph * 0.42)
+    if 'phones_y' in e.o: cy = float(e.o['phones_y']) * H
+    pbehind = e.o.get('behind') in ('1', 1, True)
     for i, o in enumerate((-1.5, -0.5, 0.5, 1.5)):
         q = ease_back((c.lt - 0.2 - 0.06 * i) / 0.4)
-        place(c, ph_[i], cx + o * W * 0.19 * q, cy + o * o * W * 0.025 * q, 0.9, -o * 11 * q, al * clamp((c.lt - 0.2) / 0.1), guard=True)
+        place(c, ph_[i], cx + o * W * float(e.o.get('spread', 0.19)) * q, cy + o * o * W * 0.025 * q, 0.9, -o * 11 * q, al * clamp((c.lt - 0.2) / 0.1), guard=not pbehind, behind=pbehind)
 
 
 @effect('dot-reveal', 'your shot builds itself out of glowing dots, then snaps into the full picture')
@@ -1243,8 +1258,9 @@ def fx_checklist(c, e):
     W, H = c.W, c.H; u = W / 1080; al = fade(c, e)
     rows = [x.split('::') for x in e.o.get('text', 'Found your face::every frame|Cut you out of the room::AI mask|Put the text behind you::depth|'
                                         'Graded the colour::warm|Rendered in 4K::2160p').split('|')]
-    n = len(rows); cw = W * 0.9; rh = 104 * u; hh = 120 * u; chh = hh + rh * n + 26 * u
-    y0 = min(max(c.fy + c.fw * 1.35, H * 0.42), H * 0.93 - chh); cy = y0 + chh / 2 + (1 - ease_out(c.lt / 0.35)) * H * 0.12
+    u *= float(e.o.get('scale', 1))
+    n = len(rows); cw = W * 0.9 * float(e.o.get('scale', 1)); rh = 104 * u; hh = 120 * u; chh = hh + rh * n + 26 * u
+    y0 = float(e.o['y']) * H if 'y' in e.o else min(max(c.fy + c.fw * 1.35, H * 0.42), H * 0.93 - chh); cy = y0 + chh / 2 + (1 - ease_out(c.lt / 0.35)) * H * 0.12
     span = max(0.4, e.d - 0.55); done_at = [0.3 + span * (i + 1) / n for i in range(n)]
     g = glass(c, cw, chh, 40 * u, W / 2, cy, amt=0.78, tint=(14, 13, 16), blur=int(30 * u)); d = ImageDraw.Draw(g)
     sx, sy = 44 * u, hh / 2
@@ -1520,8 +1536,8 @@ def fx_liquid_glass_graph(c, e):
     if e.o.get('look') == 'bento': return glass_bento(c, e)
     q = ease_out(c.lt / 0.4); al = fade(c, e) * clamp(c.lt / 0.12)
     if al <= 0: return
-    W = c.W; cw, ch = int(W * 0.74), int(W * 0.46); sc = 0.88 + 0.12 * q
-    cx = W / 2; cy = min(c.H - ch * 0.62, c.fy + c.fw * 2.7) + (1 - q) * W * 0.08
+    W = c.W; gs = float(e.o.get('scale', 1)); cw, ch = int(W * 0.74 * gs), int(W * 0.46 * gs); sc = 0.88 + 0.12 * q
+    cx = W / 2; cy = (float(e.o['y']) * c.H if 'y' in e.o else min(c.H - ch * 0.62, c.fy + c.fw * 2.7)) + (1 - q) * W * 0.08 * (0 if 'y' in e.o else 1)
     gw, gh = int(cw * sc), int(ch * sc)
     im = glass(c, gw, gh, gh * 0.12, cx, cy, amt=0.16, blur=max(10, W // 30), dark=0.12)
     hi = cached(e, ('hi', gw, gh), lambda: Image.fromarray(np.dstack([np.full((gh, gw, 3), 255, np.uint8),
@@ -1984,8 +2000,8 @@ def fx_over_the_shoulder_zoom(c, e):
     me, m = c.img.copy(), c.m[..., None]
     a, b = (e.o.get('text') or 'Views · this reel|Top reels · total').split('|')[:2]
     va, vb = (str(e.o.get('to') or '197K|672K')).split('|')[:2]
-    glass_graph(c, c.W * 0.43, c.H * 0.255, k1, clamp((p - 0.45) / 0.17), a, va, 'line')
-    glass_graph(c, c.W * 0.57, c.H * 0.255, k2, clamp((p - 0.86) / 0.14), b, vb, 'bars')
+    glass_graph(c, c.W * 0.43, c.H * max(0.255, TOP + 0.15), k1, clamp((p - 0.45) / 0.17), a, va, 'line')
+    glass_graph(c, c.W * 0.57, c.H * max(0.255, TOP + 0.15), k2, clamp((p - 0.86) / 0.14), b, vb, 'bars')
     c.img = c.img * (1 - m) + me * m   # your head stays in front of the cards
 
 
@@ -2019,7 +2035,7 @@ def msg_bubble(c, y, title, body, a):
 @effect('messages', 'iMessage notifications pop in one after another, creamy glass with a soft glow, stacking up above the bottom of the frame')
 def fx_messages(c, e):
     msgs = (e.o.get('text') or 'how did you edit this??|wait, which app is this|send me the effects pls|EFFECTS').split('|')
-    title = e.o.get('title', 'Messages'); n = len(msgs); u = c.W / 2160
+    title = e.o.get('title', 'Messages'); n = len(msgs); u = c.W / 2160 * float(e.o.get('scale', 1))
     gap = min(0.4, e.d * 0.75 / max(1, n)); pops = [0.13 + i * gap for i in range(n)]
     bottom = c.H * float(e.o.get('y', 0.61)); out = fade(c, e, 0.2)
     for k in range(n):
@@ -2062,6 +2078,9 @@ def grid_tile(im, w, h, views, r):
 def fx_place_in_grid(c, e):
     W, H = c.W, c.H; g, m = int(33 * W / 2160), int(68 * W / 2160)
     tw = (W - 2 * m - 2 * g) // 3; th = int(tw * 16 / 9); top = (H - (3 * th + 2 * g)) // 2; r = int(28 * W / 2160)
+    avail = H * (SAFE - max(TOP, 0.02)) - H * 0.01
+    if 3 * th + 2 * g > avail:
+        th = int((avail - 2 * g) / 3); tw = int(th * 9 / 16); m = (W - 3 * tw - 2 * g) // 2; top = int(H * max(TOP, 0.02))
     rect = lambda i: (m + (i % 3) * (tw + g), top + (i // 3) * (th + g))
     views = (e.o.get('views') or '2.4M|847K|1.2M|312K|3.4M|596K|268K|1.8M|3.1M').split('|')
     tiles = cached(e, 'tiles', lambda: [grid_tile(vary(im, i) if e.o.get('images') is None else im, tw, th, views[i % len(views)], r) for i, im in enumerate((e.cards * 8)[:8])])
@@ -2193,10 +2212,16 @@ def bar_chrome(W, bw, bh, th, sc):
 def fx_claude_bar(c, e):
     """cmds: 'second::text|...' in video seconds; text after '//' is a dim hint; empty text clears the line.
     theme: ink | cobalt | lime (or bg/fg/accent/mascot colours). size: scale (default 1.3). y: top of the window (fraction of height)."""
-    W, H = c.W, c.H; sc = float(e.o.get('size', 1.3)); u = W / 1080 * sc; t = e.start + c.lt
+    W, H = c.W, c.H; t = e.start + c.lt
+    lw = 0.0   # low: 'a-b' ranges where the window sits on your chest, just above the Instagram UI line
+    for rg in filter(None, e.o.get('low', '').split('|')):
+        a_, b_ = (float(v) for v in rg.split('-'))
+        lw = max(lw, ease_inout((t - a_) / 0.3) * (1 - ease_inout((t - b_) / 0.3)))
+    is_low = lw > 0.5
+    sc = float(e.o.get('low_size', 0.95)) if is_low else float(e.o.get('size', 1.3)); u = W / 1080 * sc
     th = cached(e, 'th', lambda: bar_theme(e)); fg, acc = th['fg'], th['accent']
-    bw, bh = int(W * float(e.o.get('width', 0.9))), int(128 * u)
-    chrome = cached(e, 'chrome', lambda: bar_chrome(W, bw, bh, th, sc))
+    bw, bh = int(W * float(e.o.get('low_width', 0.8) if is_low else e.o.get('width', 0.9))), int(128 * u)
+    chrome = cached(e, ('chrome', is_low), lambda: bar_chrome(W, bw, bh, th, sc))
     pad = (chrome.width - bw) // 2
     cmds = []
     for part in e.o.get('cmds', '').split('|'):
@@ -2211,6 +2236,9 @@ def fx_claude_bar(c, e):
         a_, b_ = (float(v) for v in rg.split('-'))
         hk = max(hk, ease_inout((t - a_) / 0.35) * (1 - ease_inout((t - b_) / 0.35)))
     k_in *= 1 - hk; al *= 1 - hk * 0.3
+    swap = 1 - math.sin(math.pi * lw); al *= swap
+    low_top = SAFE * H - H * 0.006 - bh
+    top = top + (low_top - top) * (1.0 if lw > 0.5 else 0.0) + (H * 0.02 * (1 - swap)) * (1 if lw > 0.5 else -1)
     cy = top + bh / 2 - (1 - k_in) * (bh + top)
     im = chrome.copy(); d = ImageDraw.Draw(im)
     fs = 44 * u; f = font('mono', fs); x0 = pad + 34 * u; ty = pad + 46 * u + (bh - 46 * u) / 2
@@ -2240,7 +2268,7 @@ def fx_claude_bar(c, e):
     place(c, im, W / 2, cy, alpha=al)
     # the mascot stands on the window's top edge
     if e.o.get('mascot_on', '1') in ('0', 'off', 'no'): return
-    mw = W * float(e.o.get('msize', 0.2)); mx = W / 2 + bw / 2 - mw * 0.95
+    mw = W * (float(e.o.get('low_msize', 0.13)) if is_low else float(e.o.get('msize', 0.2))); mx = W / 2 + bw / 2 - mw * (0.75 if is_low else 0.95)
     feet = cy - bh / 2 + 4 * u
     drop = 0.35; lt = c.lt
     if lt < drop: return
@@ -2259,7 +2287,20 @@ def fx_claude_bar(c, e):
     m = mascot_img(mw, th['mascot'], blink=blink_, wave=wave)
     m = m.resize((max(1, int(m.width * sx)), max(1, int(m.height * sy))), Image.BILINEAR)
     bb = m.getbbox() or (0, 0, m.width, m.height)
-    place(c, m, mx, y - (bb[3] - m.height / 2), alpha=fade(c, e, 0.3))   # feet exactly on the window edge
+    place(c, m, mx, y - (bb[3] - m.height / 2), alpha=fade(c, e, 0.3) * swap)   # feet exactly on the window edge
+
+
+@effect('room-dark', 'darkens the room behind you (not you) so graphics stand out')
+def fx_room_dark(c, e):
+    amt = float(e.o.get('amount', 0.45)) * ramp(c, e, 0.3, 0.3 if e.end < 1e8 else 0)
+    if amt <= 0: return
+    xx, yy = grid(c)
+    vig = cached(e, ('v', c.W, c.H), lambda: np.clip(((xx - c.W / 2) / (c.W * 0.62)) ** 2 + ((yy - c.H * 0.42) / (c.H * 0.6)) ** 2, 0, 1).astype(np.float32))
+    g = c.img.mean(2, keepdims=True)
+    room = (c.img * (1 - 0.3) + g * 0.3) * (1 - amt * (0.75 + 0.35 * vig[..., None]))
+    room = room * np.float32([1.0, 0.98, 0.95])   # a touch warmer so the coral sits in the room
+    m = c.m[..., None]
+    c.img = c.img * m + room * (1 - m)
 
 
 # Optional private effects (not part of the public pack). If fx_private.py sits next to this file, its effects load too.
@@ -2379,7 +2420,8 @@ def main():
     if a.plan:
         src, dst = a.args[0], a.args[1]; plan = json.load(open(a.plan))
         if isinstance(plan, dict) and 'safe' in plan: globals()['SAFE'] = float(plan['safe'])
-        if isinstance(plan, dict) and 'top' in plan: globals()['TOP'] = float(plan['top'])
+        if isinstance(plan, dict) and 'guard' in plan: globals()['GUARD_V'] = float(plan['guard'])
+        if isinstance(plan, dict) and 'top' in plan: globals()['TOP'] = globals()['PLAN_TOP'] = float(plan['top'])
         plan = plan.get('effects', plan) if isinstance(plan, dict) else plan
     else:
         name, src, dst = a.args[0], a.args[1], a.args[2]
@@ -2435,6 +2477,7 @@ def main():
             c.m = cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR).astype(np.float32) / 255.0 if m is not None else np.zeros((H, W), np.float32)
             fx_, fy_, fw_ = sm[min(i, len(sm) - 1)]; c.fx, c.fy, c.fw = fx_ * sc, fy_ * sc, max(fw_ * sc, W * 0.05)
             for f in act:
+                globals()['TOP'] = float(f.o.get('top', PLAN_TOP))
                 c.lt = t - f.start; EFFECTS[f.name][0](c, f)
             frame = (np.clip(c.img, 0, 1) * 255 + 0.5).astype(np.uint8)
         if stills is not None:
