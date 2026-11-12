@@ -30,6 +30,7 @@ TOP = 0.02
 PLAN_TOP = 0.02
 # How far below your face the 'guard' reaches (in face widths). 1.35 reaches your neck; plans can set "guard": 1.0.
 GUARD_V = 1.35
+FACE_LOCK = True
 
 HOUSE = {'black': (17, 17, 17), 'white': (255, 255, 255), 'cream': (246, 236, 223), 'orange': (241, 91, 69),
          'accent': (232, 102, 58), 'gold': (242, 165, 22), 'green': (53, 168, 83)}
@@ -617,13 +618,13 @@ def fx_reject_stamp(c, e):
         im.putalpha(Image.fromarray(a.astype(np.uint8)))
         return im
     st = cached(e, 's', build)
-    k = clamp(c.lt / 0.16); sc = 2.3 - 1.3 * k * k
+    k = clamp(c.lt / 0.16); s0 = float(e.o.get('slam', 2.3)); sc = s0 - (s0 - 1) * k * k
     if 0.16 < c.lt < 0.45:
         a = (0.45 - c.lt) / 0.29 * c.W * 0.012; rnd = np.random.default_rng(int(c.t * 30))
         M = np.float32([[1, 0, rnd.uniform(-a, a)], [0, 1, rnd.uniform(-a, a)]])
         c.img = cv2.warpAffine(c.img, M, (c.W, c.H), borderMode=cv2.BORDER_REFLECT)
     y = clamp(float(e.o['y']) * c.H if 'y' in e.o else c.fy + c.fw * 2.7, 0, c.H * 0.85)
-    place(c, st, c.W / 2, y, sc, float(e.o.get('angle', 12)), k * clamp((e.d - c.lt) / 0.2), guard=True)
+    place(c, st, c.W / 2, y, sc, float(e.o.get('angle', 12)), k * clamp((e.d - c.lt) / 0.2), guard='y' not in e.o)
 
 
 @effect('countdown-flip', 'a 3, 2, 1 flip clock above your head')
@@ -926,12 +927,12 @@ def fx_pastel_word(c, e):
     lum = (c.img @ np.float32([0.299, 0.587, 0.114]))[..., None]
     bg = _grad[(W, H)] * (0.86 + 0.22 * lum)
     you = np.clip(c.img * 0.93 + 0.05, 0, 1)
-    m = tight(m, 0.6, 0.92)
+    m = tight(m, 0.35, 0.75)
     c.img = c.img * (1 - k) + (you * m + bg * (1 - m)) * k
     word = cached(e, 'w', lambda: fit_text(e.o.get('text', 'REELS').upper(), W * 0.96, 'uib', 700, fill=(255, 255, 255)))
     dk = ease_out(c.lt / 0.45)
     place(c, shadowed(word, 24, 12, 60), W / 2, max(word.height * 0.45, c.fy - c.fw * 1.2) - (1 - dk) * H * 0.06, 1, 0, al * clamp(c.lt / 0.15), behind=True)
-    cw, chh = W * 0.86, W * 0.15; cy = H * float(e.o.get('card_y', 0.865)) + (1 - ease_out((c.lt - 0.15) / 0.35)) * H * 0.2
+    cs = float(e.o.get('card_scale', 1)); cw, chh = W * 0.86 * cs, W * 0.15 * cs; cy = H * float(e.o.get('card_y', 0.865)) + (1 - ease_out((c.lt - 0.15) / 0.35)) * H * 0.2
     card_ = rrect(cw, chh, chh * 0.3, (255, 255, 255, 248)); d = ImageDraw.Draw(card_)
     av = face_chip(c, e, chh * 0.64); card_.alpha_composite(av, (int(chh * 0.18), int((chh - av.height) / 2)))
     d.text((chh * 0.98, chh * 0.38), e.o.get('name', DEF_NAME), font=font('uib', chh * 0.22), fill=(20, 20, 22, 255), anchor='lm')
@@ -942,7 +943,7 @@ def fx_pastel_word(c, e):
     bx = cw - chh * 0.22
     d.text((bx, chh / 2), 'Following' if on else 'Follow', font=font('uib', chh * 0.2), fill=((140, 140, 150, 255) if on else PURPLE + (255,)), anchor='rm')
     sq = 1 - 0.06 * math.sin(math.pi * clamp((c.lt - at) / 0.25)) if on else 1
-    place(c, shadowed(card_, 18, 8, 90), W / 2, cy, sq, 0, al * clamp((c.lt - 0.15) / 0.12), guard=True)
+    place(c, shadowed(card_, 18, 8, 90), W / 2, cy, sq, 0, al * clamp((c.lt - 0.15) / 0.12), guard='card_y' not in e.o)
     cu = cached(e, 'cur', lambda: cursor(W * 0.06))
     ck = ease_inout((c.lt - 0.25) / max(0.2, at - 0.3))
     tx, ty = W / 2 + cw / 2 - chh * 0.55, cy + chh * 0.12
@@ -959,7 +960,7 @@ def fx_check_pills(c, e):
         for x in range(0, W, st): g[:, x:x + lw] = np.float32([0.86, 0.875, 0.9])
         for y in range(0, H, st): g[y:y + lw] = np.float32([0.86, 0.875, 0.9])
         _gp[(W, H)] = g
-    m = tight(m, 0.6, 0.92)
+    m = tight(m, 0.35, 0.75)
     c.img = c.img * (1 - k) + (c.img * m + _gp[(W, H)] * (1 - m)) * k
     def board(i, title):
         bw = int(W * 0.44); im = rrect(bw, int(bw * 1.12), bw * 0.07, (255, 255, 255, 255)); d = ImageDraw.Draw(im)
@@ -2476,6 +2477,11 @@ def main():
             m = masks.get(i)
             c.m = cv2.resize(m, (W, H), interpolation=cv2.INTER_LINEAR).astype(np.float32) / 255.0 if m is not None else np.zeros((H, W), np.float32)
             fx_, fy_, fw_ = sm[min(i, len(sm) - 1)]; c.fx, c.fy, c.fw = fx_ * sc, fy_ * sc, max(fw_ * sc, W * 0.05)
+            if FACE_LOCK:   # the core of your face always counts as you, so no effect can eat into it
+                y0_, y1_ = int(max(0, c.fy - c.fw * 0.75)), int(min(H, c.fy + c.fw * 0.8)); x0_, x1_ = int(max(0, c.fx - c.fw * 0.6)), int(min(W, c.fx + c.fw * 0.6))
+                yy_, xx_ = np.ogrid[y0_:y1_, x0_:x1_]
+                el = ((xx_ - c.fx) / (c.fw * 0.5)) ** 2 + ((yy_ - (c.fy + c.fw * 0.02)) / (c.fw * 0.7)) ** 2
+                c.m[y0_:y1_, x0_:x1_] = np.maximum(c.m[y0_:y1_, x0_:x1_], np.clip((1.0 - el) / 0.15, 0, 1))
             for f in act:
                 globals()['TOP'] = float(f.o.get('top', PLAN_TOP))
                 c.lt = t - f.start; EFFECTS[f.name][0](c, f)
