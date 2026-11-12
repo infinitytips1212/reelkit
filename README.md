@@ -1,20 +1,20 @@
-# reel-fx: 46 video effects for Claude Code
+# reelkit: 46 video effects for Claude Code
 
-Drop your talking-head video into Claude Code, type `/reel-fx` and the name of an effect. That's the whole edit.
+Drop your talking-head video into Claude Code, type `/reelkit` and the name of an effect. That's the whole edit.
 
 ## Install
 
 Open the Terminal app (or the terminal inside Claude Code) and paste:
 
 ```bash
-git clone https://github.com/GITHUB_USER/reel-fx ~/.claude/skills/reel-fx
+git clone https://github.com/GITHUB_USER/reelkit ~/.claude/skills/reelkit
 ```
 
-On Windows (PowerShell), use `$HOME\.claude\skills\reel-fx` instead of `~/.claude/skills/reel-fx`.
+On Windows (PowerShell), use `$HOME\.claude\skills\reelkit` instead of `~/.claude/skills/reelkit`.
 
 Then restart Claude Code.
 
-> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/GITHUB_USER/reel-fx into ~/.claude/skills/reel-fx"**. Claude will do it for you.
+> Not sure how? Open Claude Code and paste: **"Install the skill from github.com/GITHUB_USER/reelkit into ~/.claude/skills/reelkit"**. Claude will do it for you.
 
 ## Use it
 
@@ -23,10 +23,10 @@ Then restart Claude Code.
 3. Type the effect you want:
 
 ```
-/reel-fx orbit from 3 to 6 seconds
-/reel-fx spotlight when I say "kill the lights", with the word CLAUDE behind me
-/reel-fx mascot at the start, saying "Watch this"
-/reel-fx comment-box at the end, typing EFFECTS
+/reelkit orbit from 3 to 6 seconds
+/reelkit spotlight when I say "kill the lights", with the word CLAUDE behind me
+/reelkit mascot at the start, saying "Watch this"
+/reelkit comment-box at the end, typing EFFECTS
 ```
 
 The first time, Claude sets itself up (about 2 minutes). It needs `ffmpeg` and Python, and installs them if they're missing.
@@ -101,7 +101,7 @@ Bonus looks: `glitter-spotlight` (golden rays and sparkles), `cover-star look=ed
 
 Every effect follows your face. Anything that would cover your face goes behind your head instead.
 
-## What's new in reel-fx
+## What's new in reelkit
 - **`mascot`**: a new effect with a pixel character that lands beside you and talks.
 - **House colours by name**: say `color=orange`, `gold`, `cream`, `black`, `white`, `green` or `accent` instead of hex codes. These are the new defaults.
 - **Word timing fixed**: "when I say…" timing works again (the transcriber no longer crashes with newer Python packages).
@@ -123,5 +123,5 @@ Every effect follows your face. Anything that would cover your face goes behind 
 Just tell Claude what you see ("the word covers my face", "it's too fast"). It will fix the plan and render again.
 
 ## Credits
-reel-fx is based on [claude-video-effects](https://github.com/Vibha-Ramprakash/claude-video-effects) by Vibha Ramprakash (MIT licence).
+reelkit is based on [claude-video-effects](https://github.com/Vibha-Ramprakash/claude-video-effects) by Vibha Ramprakash (MIT licence).
 Face tracking: [OpenCV YuNet](https://github.com/opencv/opencv_zoo) (MIT). Person cut-out: [MediaPipe Selfie Segmenter](https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter) (Apache 2.0). Fonts: Archivo Black, Instrument Serif, Space Mono, Inter, Anton, Montserrat, Playfair Display (SIL OFL) and Permanent Marker (Apache 2.0); licences are in `fonts/`. Everything else: MIT, see `LICENSE`.

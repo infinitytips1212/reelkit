@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""reel-fx: video effects for Claude Code.
+"""reelkit: video effects for Claude Code.
 Based on claude-video-effects by Vibha Ramprakash (MIT), with house-style colours, a fixed
 transcriber and new effects (mascot).
 
@@ -406,7 +406,7 @@ def fx_swipe(c, e):
 
 @effect('todo', 'a checklist card beside your head that ticks off as you talk')
 def fx_todo(c, e):
-    items = e.o.get('text', 'drop your video into Claude|install the skill|type /reel-fx').split('|')
+    items = e.o.get('text', 'drop your video into Claude|install the skill|type /reelkit').split('|')
     # ticks = video seconds when each item gets ticked (e.g. when you say it); default is evenly spaced
     ticks = [float(t) - e.start for t in str(e.o['ticks']).split('|')] if e.o.get('ticks') else [e.d * (i + 1) / (len(items) + 1) for i in range(len(items))]
     cw = int(c.W * 0.5); lh = int(cw * 0.13); pad = int(cw * 0.07)
@@ -1631,7 +1631,7 @@ def fx_match_cut(c, e):
 
 @effect('apple-toggles', 'an iPhone settings card under your chin flips its switches on, one line at a time')
 def fx_apple_toggles(c, e):
-    rows = e.o.get('text', 'One clip|Type /reel-fx|Zero editing apps').split('|')
+    rows = e.o.get('text', 'One clip|Type /reelkit|Zero editing apps').split('|')
     if e.o.get('pos', 'above') != 'below': face_cam(c, 1 + (float(e.o.get('zoom', 1.12)) - 1) * ease_out(c.lt / 0.5), 0.56)
     W = c.W; cw = int(W * 0.72); rh = int(W * 0.125); ch = rh * len(rows); r = int(W * 0.055)
     tw, th = int(W * 0.135), int(W * 0.08); tx = cw - int(W * 0.05) - tw
@@ -2069,7 +2069,7 @@ def fx_place_in_grid(c, e):
 
 
 
-# ---------- reel-fx additions ----------
+# ---------- reelkit additions ----------
 # The pixel mascot, drawn from simple blocks (377 x 253 units, origin top-left).
 M_W, M_H = 377.0, 253.0
 M_BODY, M_ARM_L, M_ARM_R = (60, 0, 319, 186), (0, 61, 61, 124), (318, 61, 377, 124)

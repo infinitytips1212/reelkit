@@ -1,9 +1,9 @@
 ---
-name: reel-fx
-description: Add any of 46 video effects to a talking-head video (orbit, spotlight, mascot, glass widgets, timeline, checklist, headline wall, comment box, phone fan, liquid glass graph, match-cut, iPhone toggles, LED sign, over-the-shoulder zoom, iMessage pop-ups, place-in-grid and more). Effects track the speaker's face and can sit behind their head. Use when the user types /reel-fx, names one of the effects, or asks to add an effect, zoom, grade, sticker or animation to their video.
+name: reelkit
+description: Add any of 46 video effects to a talking-head video (orbit, spotlight, mascot, glass widgets, timeline, checklist, headline wall, comment box, phone fan, liquid glass graph, match-cut, iPhone toggles, LED sign, over-the-shoulder zoom, iMessage pop-ups, place-in-grid and more). Effects track the speaker's face and can sit behind their head. Use when the user types /reelkit, names one of the effects, or asks to add an effect, zoom, grade, sticker or animation to their video.
 ---
 
-# reel-fx: 46 video effects for talking-head reels
+# reelkit: 46 video effects for talking-head reels
 
 The user is usually not technical. Keep replies short and friendly, do the work for them, and never ask them to run commands themselves.
 
@@ -17,7 +17,7 @@ Run `bash scripts/setup.sh`. It prints `READY` when done (the first time takes 1
 
 ## 2. Get the video and the effect
 - Video: the user drags the file into the chat, or gives a path. A vertical phone video works best.
-- Effect: from `/reel-fx <name>`, or from what they describe. Match their words to the table below. Unsure? Show them the list.
+- Effect: from `/reelkit <name>`, or from what they describe. Match their words to the table below. Unsure? Show them the list.
 
 ## 3. Make a work folder (every job)
 Keep each job tidy so the user can find or delete it in one go. Next to their video, create `<video-name>_fx/` with:
