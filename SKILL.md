@@ -113,6 +113,7 @@ Anywhere an effect takes `color` (or `accent`), you can use a house colour name 
 Big-word effects also take `font=inter` (Inter ExtraBold) besides `bold`, `serif`, `mono`, `anton` and `hand`.
 
 ## Rules
+- Keep the bottom 35% clear: Instagram puts the name, caption and buttons there. reelkit keeps every placed graphic above 65% of the frame height by itself (`"safe": 0.65` at the top of a plan, or `--safe`; `1` turns it off). Check frames for anything that still dips below that line, and never put text or cards there.
 - Never cover the face. Everything either goes behind the person or avoids the face by itself; if a check frame still shows text over the face, move it (`x`, `y`) or shorten the text.
 - Effects run in the order listed. Put camera effects (`locked-on`, `lean-in`, `spotlight`) first when they overlap others.
 - Zoom never goes past 2x, so the video stays sharp.

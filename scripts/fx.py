@@ -22,6 +22,10 @@ FONT = {k: os.path.join(ROOT, 'fonts', v) for k, v in {
     'inter': 'Inter.ttf'}.items()}
 WGHT = {'ui': (24, 640), 'uim': (24, 540), 'uib': (32, 860), 'inter': (32, 800), 'mont': (700,), 'monts': (600,), 'montb': (800,), 'didone': (500,), 'didoneb': (800,), 'didonei': (500,)}  # Inter variable: (optical size, weight)
 # House palette: black / white / cream backgrounds, mascot orange, gold and green accents.
+# Instagram covers the bottom of a reel (name, caption, buttons). Graphics placed with place()
+# never go below this fraction of the frame height. Plan key "safe" or --safe changes it (1 = off).
+SAFE = 0.65
+
 HOUSE = {'black': (17, 17, 17), 'white': (255, 255, 255), 'cream': (246, 236, 223), 'orange': (241, 91, 69),
          'accent': (232, 102, 58), 'gold': (242, 165, 22), 'green': (53, 168, 83)}
 DEF_NAME, DEF_HANDLE = 'Your Name', '@yourhandle'   # shown when the user gives no name/handle
@@ -149,6 +153,8 @@ def place(c, im, cx, cy, scale=1.0, rot=0.0, alpha=1.0, behind=False, guard=Fals
     if abs(scale - 1) > 0.005:
         im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.BILINEAR)
     if abs(rot) > 0.05: im = im.rotate(rot, Image.BICUBIC, expand=True)
+    limit = SAFE * c.H
+    if cy + im.height / 2 > limit: cy = max(im.height / 2, limit - im.height / 2)  # keep clear of the Instagram UI
     comp(c, im, cx - im.width / 2, cy - im.height / 2, alpha, behind, guard)
 
 
@@ -292,6 +298,9 @@ def fx_orbit(c, e):
     intro, out = ease_out(c.lt / 0.4), clamp((e.d - c.lt) / 0.25)
     rx, ry = c.W * 0.38 * intro, max(c.fw * 1.5, c.H * 0.1)
     oy = c.fy + c.fw * 0.9
+    ch = cw * 16 / 9 * 0.51
+    if oy + ry + ch > SAFE * c.H:
+        ry = max(c.fw * 1.0, c.H * 0.08); oy = min(oy, SAFE * c.H - ry - ch)
     items = []
     for i in range(K):
         th = i * 2 * math.pi / K + c.lt * float(e.o.get('speed', 1.9))
@@ -1561,7 +1570,7 @@ def fx_carousel_spin(c, e):
     p = clamp(c.lt / e.d); spin = float(e.o.get('turns', 1.1)) * 2 * math.pi * (1 - (1 - p) ** 2.4)
     intro, out = ease_out(c.lt / 0.45), fade(c, e, 0.25)
     R, ry = c.W * 0.56 * intro, c.H * 0.07
-    cy = c.fy + c.fw * 1.8
+    cy = min(c.fy + c.fw * 1.8, SAFE * c.H - ry - cw * 16 / 9 * 0.53)
     items = sorted((math.cos(i * 2 * math.pi / K + spin), i * 2 * math.pi / K + spin, i) for i in range(K))
     for depth, th, i in items:
         n = len(cards); f, dk = cards[(i * (3 if n % 3 else 2)) % n]; src = f if depth >= 0 else dk  # spread similar covers apart
@@ -2258,12 +2267,14 @@ def main():
     ap.add_argument('--still', help='comma-separated seconds: save PNG check frames instead of a video')
     ap.add_argument('--width', type=int, default=1080, help='short side of the output (1080 default, 2160 for 4K)')
     ap.add_argument('--list', action='store_true')
+    ap.add_argument('--safe', type=float, help='lowest point for graphics, as a fraction of the height (default 0.65, 1 = off)')
     a = ap.parse_args()
     if a.list:
         for i, (k, (_, d)) in enumerate(EFFECTS.items()): print(f'{i + 1:2d}. {k:15s} {d}')
         return
     if a.plan:
         src, dst = a.args[0], a.args[1]; plan = json.load(open(a.plan))
+        if isinstance(plan, dict) and 'safe' in plan: globals()['SAFE'] = float(plan['safe'])
         plan = plan.get('effects', plan) if isinstance(plan, dict) else plan
     else:
         name, src, dst = a.args[0], a.args[1], a.args[2]
@@ -2276,6 +2287,7 @@ def main():
         d['fx'] = ALIASES.get(d['fx'].lower().lstrip('/'), d['fx'].lower().lstrip('/'))
         if d['fx'] in LOOK_NAMES: d['fx'], look = LOOK_NAMES[d['fx']]; d.setdefault('look', look)
         if d['fx'] not in EFFECTS: sys.exit(f"Unknown effect '{d['fx']}'. Run --list to see all {len(EFFECTS)}.")
+    if a.safe is not None: globals()['SAFE'] = a.safe
     fr, fps, dur, sw, sh = probe(src)
     for d in plan: d['end'] = min(float(d['end']), dur)
     if sw <= sh: W = a.width; H = int(round(a.width * sh / sw / 2)) * 2
